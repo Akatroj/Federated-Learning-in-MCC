@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.agh.federatedlearninginmcc"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.agh.federatedlearninginmcc"
         minSdk = 29
-        targetSdk = 33
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
@@ -32,6 +32,12 @@ android {
     }
     kotlinOptions {
         jvmTarget = "1.8"
+    }
+
+    // turn on view binding
+    buildFeatures {
+        viewBinding = true
+        dataBinding = true
     }
 }
 
