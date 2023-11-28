@@ -15,7 +15,11 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
 import com.agh.federatedlearninginmcc.databinding.ActivityMainBinding
+import com.example.tfltest.FmnistFederatedTesting
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
 import java.util.Date
@@ -37,6 +41,10 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(binding.root)
         addOnClickedListener()
+        // filter logcat with tag:FmnistTesting
+        testFlowerOnFmnist()
+//        testTensorflowPredictionOnFmnist()
+//        testTensorflowLocalTrainingOnFmnist()
     }
 
     private fun addOnClickedListener() {
@@ -53,7 +61,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
 
     private val getContentActivityLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -117,6 +124,39 @@ class MainActivity : AppCompatActivity() {
         val timeStamp: String = SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(Date())
         val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
         return File.createTempFile("JPEG_${timeStamp}_", ".jpg", storageDir)
+    }
+
+    private fun testFlowerOnFmnist() {
+        // run python server locally before running this
+        val tester = FmnistFederatedTesting(this, "10.0.2.2", 8085)
+        lifecycleScope.launch(Dispatchers.IO) {
+            // depending on the server configuration the line below suffices to start the federated training
+            // server should print some training logs and exit if everything went properly
+            tester.connect()
+        }
+    }
+
+    private fun testTensorflowPredictionOnFmnist(useLocallyTrainedModel: Boolean = false) {
+        val tester = FmnistFederatedTesting(this, "10.0.2.2", 8085)
+        lifecycleScope.launch {
+            tester.apply {
+                val interp = loadModel(useLocallyTrainedModel)
+                testTensorflowPrediction(interp, 2)
+            }
+        }
+    }
+
+    private fun testTensorflowLocalTrainingOnFmnist() {
+        val tester = FmnistFederatedTesting(this, "10.0.2.2", 8085)
+        lifecycleScope.launch {
+            tester.apply {
+                var interp = loadModel(false)
+                testTensorflowLearning(interp)
+                writeModel(interp)
+                interp = loadModel(true)
+                testTensorflowLearning(interp) // should have lower loss since it was trained for a while
+            }
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-package com.agh.federatedlearninginmcc
+package com.example.tfltest
 
 import org.junit.Test
 
