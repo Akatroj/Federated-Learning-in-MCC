@@ -1,10 +1,9 @@
 package com.agh.federatedlearninginmcc.flower
 
 import android.util.Log
-import android.util.Size
 import org.tensorflow.lite.Interpreter
-import java.lang.Integer.min
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.nio.MappedByteBuffer
 import java.util.concurrent.locks.ReentrantLock
@@ -12,6 +11,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.withLock
 import kotlin.concurrent.write
+import kotlin.math.max
 
 /**
  * Flower client that handles TensorFlow Lite model [Interpreter] and sample data.
@@ -21,14 +21,26 @@ import kotlin.concurrent.write
  */
 class FlowerClient(
     tfliteFileBuffer: MappedByteBuffer,
-    val layersSizes: IntArray,
-    val images: List<FloatArray>,
-    val labels: List<Float>
+    private val layersSizes: IntArray,
+    private val images: List<FloatArray>,
+    private val labels: List<Float>,
+    private val numberOfClasses: Int,
+    evalSize: Float = 0.2f
 ) : AutoCloseable {
-    val interpreter = Interpreter(tfliteFileBuffer)
-    val interpreterLock = ReentrantLock()
-    val trainSampleLock = ReentrantReadWriteLock()
-    val testSampleLock = ReentrantReadWriteLock()
+    private val interpreter = Interpreter(tfliteFileBuffer)
+    private val interpreterLock = ReentrantLock()
+    private val trainSampleLock = ReentrantReadWriteLock()
+    private val testSampleLock = ReentrantReadWriteLock()
+
+    private var trainSamples: List<Sample<FloatArray, Float>>
+    private var evalSamples: List<Sample<FloatArray, Float>>
+
+    init {
+        // TODO proper train test split
+        val numTestImages = (images.size * evalSize).toInt()
+        evalSamples = (0..<numTestImages).map { Sample(images[it], labels[it]) }
+        trainSamples = (numTestImages..<images.size).map { Sample(images[it], labels[it]) }
+    }
 
     /**
      * Obtain the model parameters from [interpreter].
@@ -37,9 +49,8 @@ class FlowerClient(
      * Thread-safe.
      */
     fun getParameters(): Array<ByteBuffer> {
-//        val inputs: Map<String, Any> = FakeNonEmptyMap()
-        val outputs = emptyParameterMap()
         val inputs: Map<String, Any> = mutableMapOf("unused" to  "trash")
+        val outputs = emptyParameterMap()
         runSignatureLocked(inputs, outputs, "get_weights_for_fl")
         Log.i(TAG, "Raw weights: $outputs.")
         return parametersFromMap(outputs)
@@ -66,10 +77,11 @@ class FlowerClient(
      */
     fun fit(
         epochs: Int = 1, batchSize: Int = 32, lossCallback: ((List<Float>) -> Unit)? = null
-    ): List<Double> {
+    ): TrainingResult {
         Log.d(TAG, "Starting to train for $epochs epochs with batch size $batchSize.")
         // Obtain write lock to prevent training samples from being modified.
-        return trainSampleLock.write {
+        val trainingSamples = trainSamples.size
+        val losses = trainSampleLock.write {
             (1..epochs).map {
                 val losses = trainOneEpoch(batchSize)
                 Log.d(TAG, "Epoch $it: losses = $losses.")
@@ -77,38 +89,42 @@ class FlowerClient(
                 losses.average()
             }
         }
+        return TrainingResult(losses, trainingSamples)
     }
 
     /**
-     * Evaluate model loss and accuracy using [testSamples] and [spec].
+     * Evaluate model loss and accuracy using [evalSamples] and [spec].
      *
-     * Thread-safe, and block operations on [testSamples].
+     * Thread-safe, and block operations on [evalSamples].
      * @return (loss, accuracy).
      */
-    fun evaluate(): Pair<Float, Float> {
+    fun evaluate(): EvaluationResult {
         val result = testSampleLock.read {
-//            val bottlenecks = testSamples.map { it.bottleneck }
-//            val logits = inference(spec.convertX(bottlenecks))
-//            spec.loss(testSamples, logits) to spec.accuracy(testSamples, logits)
+            val inputs = mapOf("x" to evalSamples.map { it.x }.toTypedArray())
+            val predictionOutputs = mapOf(
+                "output" to ByteBuffer.allocate(4 * evalSamples.size).order(ByteOrder.nativeOrder()),
+                "logits" to ByteBuffer.allocate(4 * numberOfClasses * evalSamples.size).order(ByteOrder.nativeOrder())
+            )
+            runSignatureLocked(inputs, predictionOutputs, "predict")
 
-//            val logits = inference(spec.convertX(bottlenecks))
-//            spec.loss(testSamples, logits) to spec.accuracy(testSamples, logits)
-            2.2f to 0.85f // TODO
+            // this doesn't work for dynamically sized batches, idk why
+//            val lossInputs = mapOf(
+//                "y_true" to evalSamples.map { it.label }.toFloatArray(),
+//                "logits_pred" to (predictionOutputs["logits"] as ByteBuffer)
+//            )
+//            val lossOutputs = mapOf("loss" to ByteBuffer.allocate(4).order(ByteOrder.nativeOrder()))
+//            runSignatureLocked(lossInputs, lossOutputs, "compute_loss")
+//            val loss = (lossOutputs["loss"] as ByteBuffer).getFloat(0)
+
+            val predictions = predictionOutputs["output"] as ByteBuffer
+            predictions.rewind()
+            val correctPredictions = evalSamples.map { it.label }.count { it == predictions.getFloat() }
+
+            EvaluationResult(2.2f, correctPredictions.toFloat() / evalSamples.size, evalSamples.size)
         }
-        Log.d(TAG, "Evaluate loss & accuracy: $result.")
+        Log.d(TAG, "Evaluation: $result.")
         return result
     }
-
-    /**
-     * Run inference on [x] using [interpreter] and return the result.
-     */
-//    fun inference(x: Array<X>): Array<Y> {
-//        val inputs = mapOf("x" to x)
-//        val logits = spec.emptyY(x.size)
-//        val outputs = mapOf("logits" to logits)
-//        runSignatureLocked(inputs, outputs, "infer")
-//        return logits
-//    }
 
     /**
      * Not thread-safe.
@@ -119,24 +135,17 @@ class FlowerClient(
             return listOf()
         }
 
-        // trainingSamples.shuffle() TODO shuffle
-        return trainingBatches(min(batchSize, images.size)).map {
-            val labelsBatch = FloatArray(it.size)
-            it.forEachIndexed { idx, s -> labelsBatch[idx] = s.label}
-            val xs = it.map { sample -> sample.x }
-            training(xs.toTypedArray(), labelsBatch)
-        }.toList()
+        trainSamples = trainSamples.shuffled()
+        return getTrainingBatches(batchSize).map { runTraining(it) }.toList()
     }
 
     /**
      * Not thread-safe because we assume [trainSampleLock] is already acquired.
      */
-    private fun training(
-        xs: Array<FloatArray>, labels: FloatArray
-    ): Float {
+    private fun runTraining(samples: List<Sample<FloatArray, Float>>): Float {
         val inputs = mapOf<String, Any>(
-            "x_batch" to xs,
-            "y_batch" to labels,
+            "x_batch" to samples.map { it.x }.toTypedArray(),
+            "y_batch" to samples.map { it.label }.toFloatArray(),
         )
         val loss = FloatBuffer.allocate(1)
         val outputs = mapOf<String, Any>(
@@ -146,31 +155,28 @@ class FlowerClient(
         return loss.get(0)
     }
 
-
     /**
      * Constructs an iterator that iterates over training sample batches.
      */
-    private fun trainingBatches(trainBatchSize: Int): Sequence<List<Sample<FloatArray, Float>>> {
+    private fun getTrainingBatches(trainBatchSize: Int): Sequence<List<Sample<FloatArray, Float>>> {
         return sequence {
             var nextIndex = 0
 
-            while (nextIndex < images.size) {
+            while (nextIndex < trainSamples.size) {
                 var fromIndex = nextIndex
                 nextIndex += trainBatchSize
 
-                if (nextIndex >= images.size) {
-                    fromIndex = images.size - trainBatchSize
-                    nextIndex = images.size
+                if (nextIndex >= trainSamples.size) {
+                    fromIndex = max(0, trainSamples.size - trainBatchSize)
+                    nextIndex = trainSamples.size
                 }
 
-                val batch = (fromIndex..<nextIndex).map { Sample(images[it], labels[it]) }
-
-                yield(batch)
+                yield(trainSamples.subList(fromIndex, nextIndex))
             }
         }
     }
 
-    fun parametersFromMap(map: Map<String, Any>): Array<ByteBuffer> {
+    private fun parametersFromMap(map: Map<String, Any>): Array<ByteBuffer> {
         return (0 until map.size).map {
             val buffer = map["a$it"] as ByteBuffer
             buffer.rewind()
@@ -178,7 +184,7 @@ class FlowerClient(
         }.toTypedArray()
     }
 
-    fun parametersToMap(parameters: Array<ByteBuffer>): Map<String, Any> {
+    private fun parametersToMap(parameters: Array<ByteBuffer>): Map<String, Any> {
         return parameters.mapIndexed { index, bytes -> "a$index" to bytes }.toMap()
     }
 
@@ -205,6 +211,10 @@ class FlowerClient(
         interpreter.close()
     }
 }
+
+data class EvaluationResult(val loss: Float, val accuracy: Float, val numExamples: Int)
+
+data class TrainingResult(val epochLosses: List<Double>, val trainingSamples: Int)
 
 /**
  * One sample data point ([x], [label]).

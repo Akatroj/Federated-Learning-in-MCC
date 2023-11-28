@@ -25,9 +25,6 @@ class FlowerServiceRunnable
     val flowerClient: FlowerClient,
     val callback: (String) -> Unit
 ) {
-    private val sampleSize: Int
-//        get() = flowerClient.trainingSamples.size // TODO
-        get() = 4
     val finishLatch = CountDownLatch(1)
 
     val asyncStub = FlowerServiceGrpc.newStub(flowerServerChannel)!!
@@ -84,13 +81,17 @@ class FlowerServiceRunnable
         val epochConfig = message.fitIns.configMap.getOrDefault(
             "local_epochs", Scalar.newBuilder().setSint64(1).build()
         )!!
+        val batchSize = message.fitIns.configMap.getOrDefault(
+            "batch_size", Scalar.newBuilder().setSint64(32).build()
+        )!!
         val epochs = epochConfig.sint64.toInt()
         val newWeights = weightsFromLayers(layers)
         flowerClient.updateParameters(newWeights.toTypedArray())
-        flowerClient.fit(
+        val trainingResult = flowerClient.fit(
             epochs,
+            batchSize = batchSize.sint64.toInt(),
             lossCallback = { callback("Average loss: ${it.average()}.") })
-        return fitResAsProto(weightsByteBuffers(), sampleSize)
+        return fitResAsProto(weightsByteBuffers(), trainingResult.trainingSamples)
     }
 
     @Throws
@@ -100,9 +101,9 @@ class FlowerServiceRunnable
         val layers = message.evaluateIns.parameters.tensorsList
         val newWeights = weightsFromLayers(layers)
         flowerClient.updateParameters(newWeights.toTypedArray())
-        val (loss, accuracy) = flowerClient.evaluate()
-        callback("Test Accuracy after this round = $accuracy")
-        return evaluateResAsProto(loss, sampleSize)
+        val evaluation = flowerClient.evaluate()
+        callback("Test Accuracy after this round = ${evaluation.accuracy}")
+        return evaluateResAsProto(evaluation.loss, evaluation.numExamples)
     }
 
     private fun weightsByteBuffers() = flowerClient.getParameters()
