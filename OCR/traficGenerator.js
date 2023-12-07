@@ -1,7 +1,7 @@
 (async () => {
   while (true) {
     try {
-      const res = await fetch("http://104.197.39.206:8080/base64", {
+      const res = await fetch("http://172.18.0.3:31555/base64", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

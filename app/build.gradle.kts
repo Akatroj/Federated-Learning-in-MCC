@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    kotlin("plugin.serialization") version "1.9.21"
 }
 
 val composeVersion = "1.5.3"
@@ -69,6 +70,9 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite-gpu:2.9.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.2")
     implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.9.0")
+    implementation("cz.adaptech.tesseract4android:tesseract4android:4.6.0")
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
