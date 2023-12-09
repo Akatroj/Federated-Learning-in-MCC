@@ -32,7 +32,7 @@ def create_cloud_time_model(output_dir=MODELS_DIR) -> tuple[TFLiteModelWrapper, 
         tf.keras.layers.Dense(1)
     ])
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-    loss = tf.keras.losses.MeanAbsoluteError()
+    loss = tf.keras.losses.MeanSquaredError()
 
     tflite_wrapper = TFLiteModelWrapper(model, optimizer, loss)
     init_tflite_requirements(tflite_wrapper, input_dimensions)

@@ -1,6 +1,5 @@
 package com.agh.federatedlearninginmcc.ocr
 
-import android.nfc.Tag
 import android.util.Log
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -19,7 +18,7 @@ class K8sOCREngine(private val ocrUrl: String) : CloudOCREngine {
 
     @OptIn(ExperimentalEncodingApi::class)
     override fun doOCR(img: File): CloudOCRInfo {
-        Log.d(Tag, "Sending OCR request")
+        Log.d(TAG, "Sending OCR request")
         val ocrRequest = OCRRequest(Base64.encode(img.readBytes()))
         val body = Json.encodeToString(ocrRequest).toRequestBody("application/json".toMediaType())
         val request = Request.Builder()
@@ -28,7 +27,7 @@ class K8sOCREngine(private val ocrUrl: String) : CloudOCREngine {
             .build()
 
         client.newCall(request).execute().use { response ->
-            Log.d(Tag, "Got OCR response")
+            Log.d(TAG, "Got OCR response")
             if (!response.isSuccessful || response.body == null)
                 throw IOException("Failed to call OCR cloud service")
             val ocrResponse = Json.decodeFromString<OCRResponse>(response.body!!.string())
@@ -37,7 +36,7 @@ class K8sOCREngine(private val ocrUrl: String) : CloudOCREngine {
     }
 
     companion object {
-        private const val Tag = "K8sOCR"
+        private const val TAG = "K8sOCR"
     }
 }
 

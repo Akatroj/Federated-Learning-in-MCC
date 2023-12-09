@@ -16,13 +16,20 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.room.Room
 import com.agh.federatedlearninginmcc.databinding.ActivityMainBinding
+import com.agh.federatedlearninginmcc.dataset.OCRDataset
+import com.agh.federatedlearninginmcc.dataset.OcrDatabase
+import com.agh.federatedlearninginmcc.dataset.SqlOcrDataset
+import com.agh.federatedlearninginmcc.ml.*
 import com.agh.federatedlearninginmcc.ocr.K8sOCREngine
 import com.agh.federatedlearninginmcc.ocr.OCRService
 import com.agh.federatedlearninginmcc.ocr.TesseractOCREngine
 import com.example.tfltest.FmnistFederatedTesting
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.tensorflow.lite.Interpreter
+import org.tensorflow.lite.support.common.FileUtil
 import java.io.File
 import java.io.IOException
 import java.util.Date
@@ -44,12 +51,7 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(binding.root)
         addOnClickedListener()
-        // filter logcat with tag:FmnistTesting
-//        testFlowerOnFmnist()
-//        testTensorflowPredictionOnFmnist()
-//        testTensorflowLocalTrainingOnFmnist()
-//        testOCR()
-        testOCR2()
+        testNonUIStuff()
     }
 
     private fun addOnClickedListener() {
@@ -131,6 +133,17 @@ class MainActivity : AppCompatActivity() {
         return File.createTempFile("JPEG_${timeStamp}_", ".jpg", storageDir)
     }
 
+    private fun testNonUIStuff() {
+        // filter logcat with tag:FmnistTesting
+//         testFlowerOnFmnist()
+//         testTensorflowPredictionOnFmnist()
+//         testTensorflowLocalTrainingOnFmnist()
+
+//        testOCR()
+//        testOCR2()
+        testOcrFlowerTraining()
+    }
+
     private fun testFlowerOnFmnist() {
         // run python server locally before running this
         val tester = FmnistFederatedTesting(this, "10.0.2.2", 8085)
@@ -199,10 +212,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun testOCR2() {
+        val db = Room.databaseBuilder(applicationContext, OcrDatabase::class.java, "ocrdatabase")
+            .allowMainThreadQueries()
+            .fallbackToDestructiveMigration()
+            .build()
+        val dataset = SqlOcrDataset(db)
+
+        val placeholderStats: (Int) -> NormalizationStats = {
+            NormalizationStats((0..<it).map { .0f }.toFloatArray(), (0..<it).map { 1.0f }.toFloatArray(), .0f, 1.0f)
+        }
+
         val ocrService = OCRService(
             initTesseractOcr(),
             K8sOCREngine("http://172.18.0.3:31555/base64"),
-            InferenceEngine()
+            InferenceEngine(
+                dataset,
+                ModelFactory.createModel(
+                    applicationContext,
+                    ModelVariant.LOCAL_TIME,
+                    placeholderStats(ModelVariant.LOCAL_TIME.modelConfig.inputDimensions)
+                ),
+                ModelFactory.createModel(
+                    applicationContext,
+                    ModelVariant.CLOUD_TIME,
+                    placeholderStats(ModelVariant.CLOUD_TIME.modelConfig.inputDimensions)
+                )
+            ),
+            dataset
         )
         lifecycleScope.launch(Dispatchers.IO) {
             Log.d("OCR", "Launching OCR")
@@ -210,5 +246,64 @@ class MainActivity : AppCompatActivity() {
             Log.d("OCR", res)
         }
     }
-}
 
+    private fun prepareTestingDataset(dataset: OCRDataset) {
+        dataset.clear()
+        val imgFiles = (1..<11).map {
+            val testImgFile = File(filesDir, "ocr_test_img_$it.png")
+            assets.open("ocr_test_images/t$it.png").use { inputStream ->
+                testImgFile.outputStream().use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+            testImgFile
+        }.toList()
+
+         val placeholderStats: (Int) -> NormalizationStats = {
+            NormalizationStats((0..<it).map { .0f }.toFloatArray(), (0..<it).map { 1.0f }.toFloatArray(), .0f, 1.0f)
+        }
+
+        listOf(RunningLocation.FORCE_LOCAL, RunningLocation.FORCE_CLOUD).forEach { forcedLocation ->
+            val ocrService = OCRService(
+                initTesseractOcr(),
+                K8sOCREngine("http://172.18.0.3:31555/base64"),
+                InferenceEngine(
+                    dataset,
+                    ModelFactory.createModel(
+                        applicationContext,
+                        ModelVariant.LOCAL_TIME,
+                        placeholderStats(ModelVariant.LOCAL_TIME.modelConfig.inputDimensions)
+                    ),
+                    ModelFactory.createModel(
+                        applicationContext,
+                        ModelVariant.CLOUD_TIME,
+                        placeholderStats(ModelVariant.CLOUD_TIME.modelConfig.inputDimensions)
+                    ),
+                    forcedLocation
+                ),
+                dataset,
+            )
+
+            imgFiles.forEach { ocrService.doOCR(it) }
+        }
+    }
+
+    private fun testOcrFlowerTraining() {
+        val db = Room.databaseBuilder(applicationContext, OcrDatabase::class.java, "ocrdatabase")
+            .allowMainThreadQueries()
+            .fallbackToDestructiveMigration()
+            .build()
+        val dataset = SqlOcrDataset(db)
+        dataset.clear()
+
+        val trainer = TrainingEngine(applicationContext, "10.0.2.2", dataset, minSamplesToJoinTraining = 10)
+        lifecycleScope.launch(Dispatchers.IO) {
+            Log.d("OCR", "preparing dataset")
+            prepareTestingDataset(dataset)
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            Log.d("OCR", "Joining federated training")
+            trainer.joinFederatedTraining()
+        }
+    }
+}

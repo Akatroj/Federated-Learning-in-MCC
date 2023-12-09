@@ -1,19 +1,20 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from flwr.server import ServerConfig, start_server
 from flwr.server.strategy import FedAvgAndroid
 
-PORT = 8085
 
 def fit_config(server_round: int):
     """Return training configuration dict for each round.
     """
     config = {
-        "batch_size": 10,
-        "local_epochs": 5,
+        "batch_size": 2,
+        "local_epochs": 3,
     }
     return config
 
 
-def main():
+def run_server(port):
     strategy = FedAvgAndroid(
         fraction_fit=1.0, 
         fraction_evaluate=1.0,
@@ -26,9 +27,10 @@ def main():
 
     try:
         # Start Flower server for 10 rounds of federated learning
+        print(f'running server on port {port}')
         start_server(
-            server_address=f"0.0.0.0:{PORT}",
-            config=ServerConfig(num_rounds=10),
+            server_address=f"0.0.0.0:{port}",
+            config=ServerConfig(num_rounds=10), # won't start next round if client has small dataset
             strategy=strategy,
         )
     except KeyboardInterrupt:
@@ -36,5 +38,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    local_time_port, cloud_time_port = 8885, 8886
+    with ThreadPoolExecutor(2) as executor:
+        jobs = [executor.submit(run_server, port) for port in (local_time_port, cloud_time_port)]
+        executor.shutdown()
     

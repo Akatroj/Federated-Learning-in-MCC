@@ -3,8 +3,8 @@ package com.example.tfltest
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.util.Log
-import com.agh.federatedlearninginmcc.flower.FlowerClient
-import com.agh.federatedlearninginmcc.flower.createFlowerService
+import com.example.tfltest.flower.FlowerClient
+import com.example.tfltest.flower.createFlowerService
 import kotlinx.coroutines.*
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.common.FileUtil
@@ -85,7 +85,6 @@ class FmnistFederatedTesting(
 
                 val inputs: MutableMap<String, Any> = HashMap()
                 val outputs: MutableMap<String, Any> = HashMap()
-
                 inputs["x_batch"] = imgBatch.toTypedArray()
                 inputs["y_batch"] = labelsBatch
                 outputs["loss"] = FloatBuffer.allocate(1)

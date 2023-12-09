@@ -25,12 +25,12 @@ class FederatedClient(fl.client.NumPyClient):
         self.predict = self.interpreter.get_signature_runner('predict')
         self.loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
-        for k, v in self.get_weights_for_fl().items():
+        for k, v in self.get_weights_for_fl(unused=np.array(["trash"])).items():
             print(f'{k}: {v.shape} (total = {np.prod(v.shape)})')
 
 
     def get_weights(self):
-        weights = sorted(self.get_weights_for_fl().items(), key=lambda x: x[0])
+        weights = sorted(self.get_weights_for_fl(unused=np.array(["trash"])).items(), key=lambda x: x[0])
         return [w[1] for w in weights]
     
     def set_weights(self, weights):

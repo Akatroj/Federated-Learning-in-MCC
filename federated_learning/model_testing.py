@@ -62,10 +62,10 @@ Y = (Y - np.mean(Y)) / np.std(Y)
 X_train, X_test = X[:6], X[6:]
 Y_train, Y_test = Y[:6], Y[6:]
 
-local_time_model, tflite_path = create_local_time_model()
+# local_time_model, tflite_path = create_local_time_model()
 
-pretrain(local_time_model, X_train, Y_train, 20, 2)
-test_regression(lambda x: local_time_model.predict(x), X_test, Y_test, 1)
+# pretrain(local_time_model, X_train, Y_train, 20, 2)
+# test_regression(lambda x: local_time_model.predict(x), X_test, Y_test, 1)
 
 interpreter = tf.lite.Interpreter(model_path='./models/local_time.tflite')
 interpreter.allocate_tensors()
@@ -74,5 +74,5 @@ predict = interpreter.get_signature_runner("predict")
 train_epoch = interpreter.get_signature_runner("train_epoch")
 train_res = train_epoch(x_batch=X_train[:4], y_batch=Y_train[:4])
 print(train_res)
-predict_res = predict(x=X_train) 
+predict_res = predict(x=X_test[:1]) 
 print(predict_res)
