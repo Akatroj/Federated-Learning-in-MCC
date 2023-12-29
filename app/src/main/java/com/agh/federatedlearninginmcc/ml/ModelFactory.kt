@@ -6,7 +6,7 @@ import org.tensorflow.lite.support.common.FileUtil
 object ModelFactory {
     fun createModel(context: Context, variant: ModelVariant, normalizationStats: NormalizationStats) =
         FlowerRegressionModel(
-            FileUtil.loadMappedFile(context, variant.modelConfig.modelFile),
+            FileUtil.loadMappedFile(context, variant.modelConfig.modelAssetsFile),
             variant.modelConfig.inputDimensions,
             variant.modelConfig.name,
             variant.modelConfig.layerSizes,

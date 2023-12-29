@@ -7,6 +7,7 @@ enum class ModelVariant(val key: ModelVariantKey, val modelConfig: ModelConfig, 
         0,
         ModelConfig(
             "local_time.tflite",
+            "local_time.trained.tflite",
             "local_time",
             3,
             intArrayOf(3 * 5, 5, 5 * 1, 1) // weights1, biases1, weights2...
@@ -17,6 +18,7 @@ enum class ModelVariant(val key: ModelVariantKey, val modelConfig: ModelConfig, 
         1,
         ModelConfig(
             "cloud_time.tflite",
+            "cloud_time.trained.tflite",
             "cloud_time",
             3,
             intArrayOf(3 * 10, 10, 10 * 5, 5, 5 * 1, 1)
@@ -26,7 +28,8 @@ enum class ModelVariant(val key: ModelVariantKey, val modelConfig: ModelConfig, 
 }
 
 data class ModelConfig(
-    val modelFile: String,
+    val modelAssetsFile: String,
+    val modelTrainedFile: String,
     val name: String,
     // TODO try not to hardcode these two
     val inputDimensions: Int,

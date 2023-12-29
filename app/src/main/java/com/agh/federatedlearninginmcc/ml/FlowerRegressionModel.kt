@@ -4,10 +4,7 @@ import android.util.Log
 import com.example.tfltest.flower.Sample
 import com.example.tfltest.flower.TrainingResult
 import org.tensorflow.lite.Interpreter
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.FloatBuffer
-import java.nio.MappedByteBuffer
+import java.nio.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.math.max
@@ -37,8 +34,7 @@ class FlowerRegressionModel(
             "output" to ByteBuffer.allocate(4).order(ByteOrder.nativeOrder())
         )
         runSignatureLocked(inputs, outputs, "predict")
-        val res = outputs["output"] as ByteBuffer
-        val y = res.getFloat(0)
+        val y = (outputs["output"] as ByteBuffer).getFloat(0)
         return y * yStd + yMean
     }
 
@@ -84,7 +80,7 @@ class FlowerRegressionModel(
 
         val trainingSamples = trainSamples.size
         val losses = (1..epochs).map { epoch ->
-            val losses = getTrainingBatches(trainSamples.shuffled(), batchSize).map { runTraining(it) }.toList()
+            val losses = splitIntoBatches(trainSamples.shuffled(), batchSize).map { runTraining(it) }.toList()
             Log.d(modelTag, "Epoch $epoch: losses = $losses.")
             losses.average()
         }
@@ -98,9 +94,54 @@ class FlowerRegressionModel(
      * Thread-safe, and block operations on [evalSamples].
      * @return (loss).
      */
-    fun evaluate(): RegressionEvaluationResult {
-        // TODO
-        return RegressionEvaluationResult(2.2f, 0)
+    fun evaluate(evalSamples: List<Sample<FloatArray, Float>>, evalBatchSize: Int): RegressionEvaluationResult {
+        val yPred = splitIntoBatches(evalSamples, evalBatchSize).flatMap { batch ->
+            val inputs = mutableMapOf<String, Any>(
+                "x" to batch.map { it.x }.toTypedArray()
+            )
+            val outputs = mutableMapOf<String, Any>(
+                "output" to ByteBuffer.allocate(4 * batch.size).order(ByteOrder.nativeOrder())
+            )
+            runSignatureLocked(inputs, outputs, "predict")
+            val res = outputs["output"] as ByteBuffer
+            res.rewind()
+
+            val preds = ArrayList<Float>(batch.size)
+            for (i in batch.indices) {
+                preds.add(res.getFloat())
+            }
+            preds
+        }.toList()
+        val yTrue = evalSamples.map { it.label }
+
+        val lossInputs = mutableMapOf<String, Any>(
+            "y_true" to yTrue.toFloatArray(),
+            "y_pred" to yPred.toFloatArray()
+        )
+        val lossOutputs = mutableMapOf<String, Any>(
+            "loss" to ByteBuffer.allocate(4).order(ByteOrder.nativeOrder())
+        )
+        runSignatureLocked(lossInputs, lossOutputs, "compute_loss")
+        val loss = (lossOutputs["loss"] as ByteBuffer).getFloat(0)
+
+        return RegressionEvaluationResult(modelTag, loss, evalSamples.size)
+    }
+
+    fun saveToDisk(path: String) {
+        val inputs: MutableMap<String, Any> = mutableMapOf()
+        inputs["path"] = path
+        val outputs: MutableMap<String, Any> = mutableMapOf()
+        outputs["result"] = IntBuffer.allocate(1)
+        runSignatureLocked(inputs, outputs, "save")
+    }
+
+    fun restoreFromDisk(path: String) {
+        val inputs = mutableMapOf<String, Any>(
+            "path" to path
+        )
+        val outputs: MutableMap<String, Any> = mutableMapOf()
+        outputs["result"] = IntBuffer.allocate(1)
+        runSignatureLocked(inputs, outputs, "restore")
     }
 
     /**
@@ -122,23 +163,23 @@ class FlowerRegressionModel(
     /**
      * Constructs an iterator that iterates over training sample batches.
      */
-    private fun getTrainingBatches(
-        trainSamples: List<Sample<FloatArray, Float>>,
-        trainBatchSize: Int
+    private fun splitIntoBatches(
+        samples: List<Sample<FloatArray, Float>>,
+        batchSize: Int
     ): Sequence<List<Sample<FloatArray, Float>>> {
         return sequence {
             var nextIndex = 0
 
-            while (nextIndex < trainSamples.size) {
+            while (nextIndex < samples.size) {
                 var fromIndex = nextIndex
-                nextIndex += trainBatchSize
+                nextIndex += batchSize
 
-                if (nextIndex >= trainSamples.size) {
-                    fromIndex = max(0, trainSamples.size - trainBatchSize)
-                    nextIndex = trainSamples.size
+                if (nextIndex >= samples.size) {
+                    fromIndex = max(0, samples.size - batchSize)
+                    nextIndex = samples.size
                 }
 
-                yield(trainSamples.subList(fromIndex, nextIndex))
+                yield(samples.subList(fromIndex, nextIndex))
             }
         }
     }
@@ -176,4 +217,8 @@ class FlowerRegressionModel(
     }
 }
 
-data class RegressionEvaluationResult(val loss: Float, val numExamples: Int)
+data class RegressionEvaluationResult(
+    val modelTag: String,
+    val loss: Float,
+    val numExamples: Int
+)

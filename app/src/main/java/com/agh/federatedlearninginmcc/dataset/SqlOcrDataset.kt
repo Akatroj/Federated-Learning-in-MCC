@@ -28,18 +28,18 @@ class SqlOcrDataset(private val db: OcrDatabase): OCRDataset() {
         db.cloudComputedTimeSampleDao().clear()
     }
 
-    override fun getLocalTimeDataset(): Pair<List<FloatArray>, FloatArray> {
+    override fun getLocalTimeDataset(): Dataset {
         val samples = db.locallyComputedTimeSampleDao().getAll()
         val xs = samples.map { convertLocallyComputedTimeSample(it.imgInfo!!) }
         val ys = samples.map { it.computationTimeMillis!! }.map { it.toFloat() }.toFloatArray()
-        return Pair(xs, ys)
+        return Dataset(xs, ys)
     }
 
-    override fun getCloudTimeDataset(): Pair<List<FloatArray>, FloatArray> {
+    override fun getCloudTimeDataset(): Dataset {
         val samples = db.cloudComputedTimeSampleDao().getAll()
         val xs = samples.map { convertLocallyComputedTimeSample(it.imgInfo!!) }
         val ys = samples.map { it.computationTimeMillis!! }.map { it.toFloat() }.toFloatArray()
-        return Pair(xs, ys)
+        return Dataset(xs, ys)
     }
 }
 

@@ -98,6 +98,7 @@ class FlowerRegressionServiceRunnable
         val newWeights = weightsFromLayers(layers)
         trainer.updateParameters(newWeights.toTypedArray())
         val evaluation = trainer.evaluate()
+        Log.d(TAG, evaluation.toString())
         return evaluateResAsProto(evaluation.loss, evaluation.numExamples)
     }
 

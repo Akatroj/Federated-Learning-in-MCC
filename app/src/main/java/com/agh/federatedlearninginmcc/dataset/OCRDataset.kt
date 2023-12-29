@@ -12,12 +12,12 @@ abstract class OCRDataset {
     abstract fun addCloudComputedTimeSample(imgInfo: ImageInfo, totalComputationTime: Duration)
 
     // full dataset for simplicity, should probably be in batches
-    abstract fun getLocalTimeDataset(): Pair<List<FloatArray>, FloatArray>
-    abstract fun getCloudTimeDataset(): Pair<List<FloatArray>, FloatArray>
+    abstract fun getLocalTimeDataset(): Dataset
+    abstract fun getCloudTimeDataset(): Dataset
 
     abstract fun clear()
 
-    fun getDataset(modelVariant: ModelVariant): Pair<List<FloatArray>, FloatArray> {
+    fun getDataset(modelVariant: ModelVariant): Dataset {
         return when(modelVariant) {
             ModelVariant.LOCAL_TIME -> getLocalTimeDataset()
             ModelVariant.CLOUD_TIME -> getCloudTimeDataset()
@@ -25,7 +25,7 @@ abstract class OCRDataset {
     }
 
     fun getDatasetSize(modelVariant: ModelVariant): Int {
-        return getDataset(modelVariant).first.size
+        return getDataset(modelVariant).xs.size
     }
 
     fun addDatasetUpdatedObserver(observer: (modelVariant: ModelVariant) -> Unit) {

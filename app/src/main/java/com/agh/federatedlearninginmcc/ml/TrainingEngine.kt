@@ -8,13 +8,15 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.selects.select
+import java.io.File
 
 class TrainingEngine(
     private val context: Context,
     private val serverIP: String,
     private val dataset: OCRDataset,
     private val minSamplesToJoinTraining: Int = 10,
-    private val minNewSamplesToUpdateDatasets: Int = 10
+    private val minNewSamplesToUpdateDatasets: Int = 10,
+    private val restoreTrainedModel: Boolean = true
 ) {
     private val trainers: MutableMap<ModelVariantKey, FlowerRegressionTrainer?> = mutableMapOf()
     private val usedDatasetSizes: MutableMap<ModelVariantKey, Int> = mutableMapOf()
@@ -67,9 +69,20 @@ class TrainingEngine(
         val normalizationStats = DataUtils.getNormalizationStats(xs, ys, modelVariant.modelConfig.inputDimensions)
 
         val model = ModelFactory.createModel(context, modelVariant, normalizationStats)
+
+        val modelEditFile = File(context.filesDir, modelVariant.modelConfig.modelTrainedFile)
+        if (restoreTrainedModel && modelEditFile.exists()) {
+            try {
+                model.restoreFromDisk(modelEditFile.absolutePath)
+                Log.d(modelVariant.trainerConfig.tag, "Restored model from disk")
+            } catch (e: Exception) {
+                Log.e(modelVariant.trainerConfig.tag, "Failed to restore model from disk, using variant from assets", e)
+            }
+        }
+
         val (normalizedXs, normalizedYs) = normalizeData(xs, ys, normalizationStats)
 
-        return FlowerRegressionTrainer(model, normalizedXs, normalizedYs)
+        return FlowerRegressionTrainer(model, modelEditFile.absolutePath, normalizedXs, normalizedYs)
     }
 
     private fun normalizeData(

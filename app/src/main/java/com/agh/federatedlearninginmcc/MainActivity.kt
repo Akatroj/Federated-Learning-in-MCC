@@ -247,9 +247,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun prepareTestingDataset(dataset: OCRDataset) {
+    private fun prepareTestingDataset(dataset: OCRDataset, repeats: Int = 10) {
         dataset.clear()
-        val imgFiles = (1..<11).map {
+        val imgFiles = (1..<11) .map {
             val testImgFile = File(filesDir, "ocr_test_img_$it.png")
             assets.open("ocr_test_images/t$it.png").use { inputStream ->
                 testImgFile.outputStream().use { outputStream ->
@@ -284,8 +284,11 @@ class MainActivity : AppCompatActivity() {
                 dataset,
             )
 
-            imgFiles.forEach { ocrService.doOCR(it) }
+            for (i in 0..<repeats) {
+                imgFiles.forEach { ocrService.doOCR(it) }
+            }
         }
+        Log.d("OCR", "dataset ready")
     }
 
     private fun testOcrFlowerTraining() {
@@ -294,13 +297,15 @@ class MainActivity : AppCompatActivity() {
             .fallbackToDestructiveMigration()
             .build()
         val dataset = SqlOcrDataset(db)
-        dataset.clear()
+        if (dataset.getCloudTimeDataset().xs.size < 100) {
+            dataset.clear()
+            lifecycleScope.launch(Dispatchers.IO) {
+                Log.d("OCR", "preparing dataset")
+                prepareTestingDataset(dataset)
+            }
+        }
 
         val trainer = TrainingEngine(applicationContext, "10.0.2.2", dataset, minSamplesToJoinTraining = 10)
-        lifecycleScope.launch(Dispatchers.IO) {
-            Log.d("OCR", "preparing dataset")
-            prepareTestingDataset(dataset)
-        }
         lifecycleScope.launch(Dispatchers.IO) {
             Log.d("OCR", "Joining federated training")
             trainer.joinFederatedTraining()

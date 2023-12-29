@@ -12,13 +12,10 @@ class TFLiteModelWrapper(tf.Module):
             loss = self.model.loss(y_batch, model_preds)
         gradients = tape.gradient(loss, self.model.trainable_variables) 
         self.model.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
-        result = {"loss": loss}
-        return result
+        return {"loss": loss}
 
     def predict(self, x):
-        return {
-            "output": self.model(x)
-        }
+        return {"output": self.model(x)}
 
     def save(self, path):
         tensor_names = [weight.name for weight in self.model.weights]
@@ -47,3 +44,4 @@ class TFLiteModelWrapper(tf.Module):
             param = params[f'a{index}']
             weight.assign(param)
         return self.get_weights_for_fl(unused="...")
+    
