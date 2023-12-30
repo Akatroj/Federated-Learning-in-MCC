@@ -16,7 +16,7 @@ class TrainingEngine(
     private val dataset: OCRDataset,
     private val minSamplesToJoinTraining: Int = 10,
     private val minNewSamplesToUpdateDatasets: Int = 10,
-    private val restoreTrainedModel: Boolean = true
+    private val restoreTrainedModel: Boolean = true,
 ) {
     private val trainers: MutableMap<ModelVariantKey, FlowerRegressionTrainer?> = mutableMapOf()
     private val usedDatasetSizes: MutableMap<ModelVariantKey, Int> = mutableMapOf()
@@ -63,12 +63,14 @@ class TrainingEngine(
     }
 
     private fun initTrainer(modelVariant: ModelVariant): FlowerRegressionTrainer {
+        val benchmarkInfo = dataset.getBenchmarkInfo()!!
+        val (xs, ys) = dataset.getDataset(modelVariant, benchmarkInfo)
+
         // TODO it's a pretty strong assumption that mean+std of samples from this client matches
         // those of global dataset, we should get them from server (and send them for averaging too)
-        val (xs, ys) = dataset.getDataset(modelVariant)
-        val normalizationStats = DataUtils.getNormalizationStats(xs, ys, modelVariant.modelConfig.inputDimensions)
-
-        val model = ModelFactory.createModel(context, modelVariant, normalizationStats)
+        dataset.getNormalizationStats(modelVariant, benchmarkInfo)
+        val normalizationStats = dataset.getNormalizationStats(modelVariant, benchmarkInfo)
+        val model = ModelFactory.createModel(context, modelVariant)
 
         val modelEditFile = File(context.filesDir, modelVariant.modelConfig.modelTrainedFile)
         if (restoreTrainedModel && modelEditFile.exists()) {

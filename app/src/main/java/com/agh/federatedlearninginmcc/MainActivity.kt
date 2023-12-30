@@ -22,14 +22,13 @@ import com.agh.federatedlearninginmcc.dataset.OCRDataset
 import com.agh.federatedlearninginmcc.dataset.OcrDatabase
 import com.agh.federatedlearninginmcc.dataset.SqlOcrDataset
 import com.agh.federatedlearninginmcc.ml.*
+import com.agh.federatedlearninginmcc.ocr.BenchmarkHandler
 import com.agh.federatedlearninginmcc.ocr.K8sOCREngine
 import com.agh.federatedlearninginmcc.ocr.OCRService
 import com.agh.federatedlearninginmcc.ocr.TesseractOCREngine
 import com.example.tfltest.FmnistFederatedTesting
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.support.common.FileUtil
 import java.io.File
 import java.io.IOException
 import java.util.Date
@@ -140,8 +139,8 @@ class MainActivity : AppCompatActivity() {
 //         testTensorflowLocalTrainingOnFmnist()
 
 //        testOCR()
-//        testOCR2()
-        testOcrFlowerTraining()
+        testOCR2()
+//        testOcrFlowerTraining()
     }
 
     private fun testFlowerOnFmnist() {
@@ -192,7 +191,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getTestOcrImage(): File {
-        val testImgFile = File(filesDir, "ocr_test_img.png")
+        val testImgFile = File(filesDir, "ocr_test_img_small.png")
+//        val testImgFile = File(filesDir, "ocr_test_img.png")
         if (!testImgFile.exists()) {
             assets.open(testImgFile.name).use { inputStream ->
                 testImgFile.outputStream().use { outputStream ->
@@ -218,29 +218,30 @@ class MainActivity : AppCompatActivity() {
             .build()
         val dataset = SqlOcrDataset(db)
 
-        val placeholderStats: (Int) -> NormalizationStats = {
-            NormalizationStats((0..<it).map { .0f }.toFloatArray(), (0..<it).map { 1.0f }.toFloatArray(), .0f, 1.0f)
-        }
+        val localOcr = initTesseractOcr()
+        val cloudOcr = K8sOCREngine("http://172.18.0.3:31555/base64")
+        val benchmarkHandler = BenchmarkHandler(dataset, localOcr, getTestOcrImage())
 
-        val ocrService = OCRService(
-            initTesseractOcr(),
-            K8sOCREngine("http://172.18.0.3:31555/base64"),
-            InferenceEngine(
-                dataset,
-                ModelFactory.createModel(
-                    applicationContext,
-                    ModelVariant.LOCAL_TIME,
-                    placeholderStats(ModelVariant.LOCAL_TIME.modelConfig.inputDimensions)
-                ),
-                ModelFactory.createModel(
-                    applicationContext,
-                    ModelVariant.CLOUD_TIME,
-                    placeholderStats(ModelVariant.CLOUD_TIME.modelConfig.inputDimensions)
-                )
-            ),
-            dataset
-        )
         lifecycleScope.launch(Dispatchers.IO) {
+            benchmarkHandler.assertHasRunBenchmark()
+
+            val ocrService = OCRService(
+                localOcr,
+                cloudOcr,
+                InferenceEngine(
+                    dataset,
+                    ModelFactory.createModel(
+                        applicationContext,
+                        ModelVariant.LOCAL_TIME,
+                    ).restoredFrom(File(filesDir, ModelVariant.LOCAL_TIME.modelConfig.modelTrainedFile).absolutePath),
+                    ModelFactory.createModel(
+                        applicationContext,
+                        ModelVariant.CLOUD_TIME,
+                    ).restoredFrom(File(filesDir, ModelVariant.CLOUD_TIME.modelConfig.modelTrainedFile).absolutePath)
+                ),
+                dataset
+            )
+
             Log.d("OCR", "Launching OCR")
             val res = ocrService.doOCR(getTestOcrImage())
             Log.d("OCR", res)
@@ -259,11 +260,7 @@ class MainActivity : AppCompatActivity() {
             testImgFile
         }.toList()
 
-         val placeholderStats: (Int) -> NormalizationStats = {
-            NormalizationStats((0..<it).map { .0f }.toFloatArray(), (0..<it).map { 1.0f }.toFloatArray(), .0f, 1.0f)
-        }
-
-        listOf(RunningLocation.FORCE_LOCAL, RunningLocation.FORCE_CLOUD).forEach { forcedLocation ->
+         listOf(RunningLocation.FORCE_LOCAL, RunningLocation.FORCE_CLOUD).forEach { forcedLocation ->
             val ocrService = OCRService(
                 initTesseractOcr(),
                 K8sOCREngine("http://172.18.0.3:31555/base64"),
@@ -272,12 +269,10 @@ class MainActivity : AppCompatActivity() {
                     ModelFactory.createModel(
                         applicationContext,
                         ModelVariant.LOCAL_TIME,
-                        placeholderStats(ModelVariant.LOCAL_TIME.modelConfig.inputDimensions)
                     ),
                     ModelFactory.createModel(
                         applicationContext,
                         ModelVariant.CLOUD_TIME,
-                        placeholderStats(ModelVariant.CLOUD_TIME.modelConfig.inputDimensions)
                     ),
                     forcedLocation
                 ),
@@ -297,17 +292,21 @@ class MainActivity : AppCompatActivity() {
             .fallbackToDestructiveMigration()
             .build()
         val dataset = SqlOcrDataset(db)
-        if (dataset.getCloudTimeDataset().xs.size < 100) {
+        if (dataset.getCloudTimeDatasetSize() < 100) {
             dataset.clear()
             lifecycleScope.launch(Dispatchers.IO) {
                 Log.d("OCR", "preparing dataset")
                 prepareTestingDataset(dataset)
             }
         }
+        val localOcr = initTesseractOcr()
+        val benchmarkHandler = BenchmarkHandler(dataset, localOcr, getTestOcrImage())
 
-        val trainer = TrainingEngine(applicationContext, "10.0.2.2", dataset, minSamplesToJoinTraining = 10)
         lifecycleScope.launch(Dispatchers.IO) {
             Log.d("OCR", "Joining federated training")
+            benchmarkHandler.assertHasRunBenchmark()
+            val trainer = TrainingEngine(applicationContext, "10.0.2.2", dataset,
+                minSamplesToJoinTraining = 10, restoreTrainedModel = false)
             trainer.joinFederatedTraining()
         }
     }

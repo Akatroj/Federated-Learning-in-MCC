@@ -6,11 +6,10 @@ from tflite_model_wrapper import TFLiteModelWrapper
 MODELS_DIR = './models'
 
 def create_local_time_model(output_dir=MODELS_DIR) -> tuple[TFLiteModelWrapper, str]:
-    input_dimensions = 3
+    input_dimensions = 4
     output_path = f'{output_dir}/local_time.tflite'
 
     model = tf.keras.Sequential([
-        # tf.keras.layers.LayerNormalization(),
         tf.keras.layers.Dense(5, activation='relu'),
         tf.keras.layers.Dense(1)
     ])
@@ -24,11 +23,10 @@ def create_local_time_model(output_dir=MODELS_DIR) -> tuple[TFLiteModelWrapper, 
 
 
 def create_cloud_time_model(output_dir=MODELS_DIR) -> tuple[TFLiteModelWrapper, str]:
-    input_dimensions = 3
+    input_dimensions = 4
     output_path = f'{output_dir}/cloud_time.tflite'
 
     model = tf.keras.Sequential([
-        # tf.keras.layers.LayerNormalization(),
         tf.keras.layers.Dense(10, activation='relu'),
         tf.keras.layers.Dense(5, activation='relu'),
         tf.keras.layers.Dense(1)

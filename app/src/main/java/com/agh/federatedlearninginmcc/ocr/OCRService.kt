@@ -23,12 +23,14 @@ class OCRService(
             Log.d(TAG, "running OCR locally")
             val ocrResult = localOCREngine.doOCR(img)
             val ocrTime = System.currentTimeMillis() - start
+            Log.d(TAG, "OCR local time: $ocrTime")
             ocrDataset.addLocallyComputedTimeSample(imgInfo, ocrTime.toDuration(DurationUnit.MILLISECONDS))
             ocrResult
         } else {
             Log.d(TAG, "running OCR remotely")
             val ocrResult = cloudOCREngine.doOCR(img)
             val ocrTime = System.currentTimeMillis() - start
+            Log.d(TAG, "OCR remote time: $ocrTime")
             ocrDataset.addCloudComputedTimeSample(imgInfo, ocrTime.toDuration(DurationUnit.MILLISECONDS))
             ocrResult.text
         }

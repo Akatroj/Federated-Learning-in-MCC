@@ -9,9 +9,9 @@ enum class ModelVariant(val key: ModelVariantKey, val modelConfig: ModelConfig, 
             "local_time.tflite",
             "local_time.trained.tflite",
             "local_time",
-            3,
-            intArrayOf(3 * 5, 5, 5 * 1, 1) // weights1, biases1, weights2...
-        ),
+            4,
+            intArrayOf(4 * 5, 5, 5 * 1, 1), // weights1, biases1, weights2...
+            ),
         TrainerConfig("localTime", 8885)
     ),
     CLOUD_TIME(
@@ -20,8 +20,8 @@ enum class ModelVariant(val key: ModelVariantKey, val modelConfig: ModelConfig, 
             "cloud_time.tflite",
             "cloud_time.trained.tflite",
             "cloud_time",
-            3,
-            intArrayOf(3 * 10, 10, 10 * 5, 5, 5 * 1, 1)
+            4,
+            intArrayOf(4 * 10, 10, 10 * 5, 5, 5 * 1, 1),
         ),
         TrainerConfig("cloudTime", 8886)
     )

@@ -14,19 +14,11 @@ class FlowerRegressionModel(
     val inputDimensions: Int,
     private val modelTag: String,
     private val layerSizes: IntArray,
-    private val xMeans: FloatArray, // TODO handle these means/stds differently
-    private val xStds: FloatArray,
-    private val yMean: Float,
-    private val yStd: Float
 ) : AutoCloseable {
     private val interpreter = Interpreter(tfliteFileBuffer)
     private val interpreterLock = ReentrantLock()
 
     fun predict(x: FloatArray): Float {
-        val normalizedX = x.copyOf()
-        normalizedX.forEachIndexed { i, value ->
-            normalizedX[i] = (value - xMeans[i]) / xStds[i]
-        }
         val inputs = mutableMapOf<String, Any>(
             "x" to Array(1) { x }
         )
@@ -34,8 +26,7 @@ class FlowerRegressionModel(
             "output" to ByteBuffer.allocate(4).order(ByteOrder.nativeOrder())
         )
         runSignatureLocked(inputs, outputs, "predict")
-        val y = (outputs["output"] as ByteBuffer).getFloat(0)
-        return y * yStd + yMean
+        return (outputs["output"] as ByteBuffer).getFloat(0)
     }
 
     /**
@@ -142,6 +133,11 @@ class FlowerRegressionModel(
         val outputs: MutableMap<String, Any> = mutableMapOf()
         outputs["result"] = IntBuffer.allocate(1)
         runSignatureLocked(inputs, outputs, "restore")
+    }
+
+    fun restoredFrom(path: String): FlowerRegressionModel {
+        restoreFromDisk(path)
+        return this
     }
 
     /**
