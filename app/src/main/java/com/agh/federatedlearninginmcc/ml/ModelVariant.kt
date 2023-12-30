@@ -14,16 +14,27 @@ enum class ModelVariant(val key: ModelVariantKey, val modelConfig: ModelConfig, 
             ),
         TrainerConfig("localTime", 8885)
     ),
-    CLOUD_TIME(
+    CLOUD_COMPUTATION_TIME(
         1,
         ModelConfig(
-            "cloud_time.tflite",
-            "cloud_time.trained.tflite",
-            "cloud_time",
-            4,
-            intArrayOf(4 * 10, 10, 10 * 5, 5, 5 * 1, 1),
+            "cloud_computation_time.tflite",
+            "cloud_computation_time.trained.tflite",
+            "cloud_computation_time",
+            5,
+            intArrayOf(5 * 10, 10, 10 * 5, 5, 5 * 1, 1),
         ),
-        TrainerConfig("cloudTime", 8886)
+        TrainerConfig("cloudComputationTime", 8886)
+    ),
+    CLOUD_TRANSMISSION_TIME(
+        2,
+        ModelConfig(
+            "cloud_transmission_time.tflite",
+            "cloud_transmission_time.trained.tflite",
+            "cloud_transmission_time",
+            5,
+            intArrayOf(5 * 10, 10, 10 * 5, 5, 5 * 1, 1),
+        ),
+        TrainerConfig("cloudTransmissionTime", 8887)
     )
 }
 

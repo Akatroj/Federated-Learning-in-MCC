@@ -19,12 +19,16 @@ class SqlOcrDataset(private val db: OcrDatabase): OCRDataset() {
     }
 
     override fun addCloudComputedTimeSample(
-        imgInfo: ImageInfo,
-        totalComputationTime: Duration
+        imgInfo: ImageInfo, computationTime: Duration, transmissionTime: Duration, executedAt: Instant
     ) {
-        val sample = CloudComputedTimeSample(imgInfo, totalComputationTime.inWholeMilliseconds.toInt())
+        val sample = CloudComputedTimeSample(
+            imgInfo,
+            computationTime.inWholeMilliseconds.toInt(),
+            transmissionTime.inWholeMilliseconds.toInt(),
+            toTimeOfDay(executedAt),
+        )
         db.cloudComputedTimeSampleDao().insert(sample)
-        notifyDatasetUpdated(ModelVariant.CLOUD_TIME)
+        notifyDatasetUpdated(ModelVariant.CLOUD_COMPUTATION_TIME)
     }
 
     override fun addBenchmarkInfo(benchmarkInfo: BenchmarkInfo) {
@@ -48,11 +52,12 @@ class SqlOcrDataset(private val db: OcrDatabase): OCRDataset() {
         return Dataset(xs, ys)
     }
 
-    override fun getCloudTimeDataset(benchmarkInfo: BenchmarkInfo): Dataset {
-        val samples = db.cloudComputedTimeSampleDao().getAll()
-        val xs = samples.map { createCloudTimeXSample(benchmarkInfo, it.imgInfo!!) }
-        val ys = samples.map { it.computationTimeMillis!! }.map { it.toFloat() }.toFloatArray()
-        return Dataset(xs, ys)
+    override fun getCloudComputationTimeDataset(benchmarkInfo: BenchmarkInfo): Dataset {
+        return buildCloudTimeDataset(benchmarkInfo) { it.computationTimeMillis!! }
+    }
+
+    override fun getCloudTransmissionTimeDataset(benchmarkInfo: BenchmarkInfo): Dataset {
+        return buildCloudTimeDataset(benchmarkInfo) { it.transmissionTimeMillis!! }
     }
 
     override fun getBenchmarkInfo(): BenchmarkInfo? {
@@ -65,8 +70,19 @@ class SqlOcrDataset(private val db: OcrDatabase): OCRDataset() {
         return db.locallyComputedTimeSampleDao().getSize()
     }
 
-    override fun getCloudTimeDatasetSize(): Int {
+    override fun getCloudComputationTimeDatasetSize(): Int {
         return db.cloudComputedTimeSampleDao().getSize()
+    }
+
+    override fun getCloudTransmissionTimeDatasetSize(): Int {
+        return getCloudComputationTimeDatasetSize()
+    }
+
+    private fun buildCloudTimeDataset(benchmarkInfo: BenchmarkInfo, timeExtractor: (CloudComputedTimeSample) -> Int): Dataset {
+        val samples = db.cloudComputedTimeSampleDao().getAll()
+        val xs = samples.map { createCloudTimeXSample(benchmarkInfo, it.imgInfo!!, it.timeOfDay!!) }
+        val ys = samples.map { timeExtractor(it) }.map { it.toFloat() }.toFloatArray()
+        return Dataset(xs, ys)
     }
 }
 
@@ -84,11 +100,13 @@ data class LocallyComputedTimeSample(
 data class CloudComputedTimeSample(
     @PrimaryKey(autoGenerate = true) val sampleId: Int,
     @Embedded val imgInfo: ImageInfo?,
-    val computationTimeMillis: Int?
+    val computationTimeMillis: Int?,
+    val transmissionTimeMillis: Int?,
+    val timeOfDay: Float? // 24h mapped to [0,1], e.g. 16:00 -> 0.66
     // TODO info related to cloud
 ) {
-    constructor(imgInfo: ImageInfo?, computationTimeMillis: Int?):
-            this(0, imgInfo, computationTimeMillis)
+    constructor(imgInfo: ImageInfo?, computationTimeMillis: Int?, transmissionTimeMillis: Int?, timeOfDay: Float?):
+            this(0, imgInfo, computationTimeMillis, transmissionTimeMillis, timeOfDay)
 }
 
 @Entity
@@ -148,7 +166,7 @@ interface LocalBenchmarkTaskInfoDao {
     LocallyComputedTimeSample::class,
     CloudComputedTimeSample::class,
     LocalBenchmarkTaskInfo::class,
-), version = 2)
+), version = 3)
 abstract class OcrDatabase: RoomDatabase() {
     abstract fun locallyComputedTimeSampleDao(): LocallyComputedTimeSampleDao
     abstract fun cloudComputedTimeSampleDao(): CloudComputedTimeSampleDao

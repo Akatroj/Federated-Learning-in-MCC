@@ -139,8 +139,8 @@ class MainActivity : AppCompatActivity() {
 //         testTensorflowLocalTrainingOnFmnist()
 
 //        testOCR()
-        testOCR2()
-//        testOcrFlowerTraining()
+//        testOCR2()
+        testOcrFlowerTraining()
     }
 
     private fun testFlowerOnFmnist() {
@@ -236,8 +236,12 @@ class MainActivity : AppCompatActivity() {
                     ).restoredFrom(File(filesDir, ModelVariant.LOCAL_TIME.modelConfig.modelTrainedFile).absolutePath),
                     ModelFactory.createModel(
                         applicationContext,
-                        ModelVariant.CLOUD_TIME,
-                    ).restoredFrom(File(filesDir, ModelVariant.CLOUD_TIME.modelConfig.modelTrainedFile).absolutePath)
+                        ModelVariant.CLOUD_COMPUTATION_TIME,
+                    ).restoredFrom(File(filesDir, ModelVariant.CLOUD_COMPUTATION_TIME.modelConfig.modelTrainedFile).absolutePath),
+                    ModelFactory.createModel(
+                        applicationContext,
+                        ModelVariant.CLOUD_TRANSMISSION_TIME,
+                    ).restoredFrom(File(filesDir, ModelVariant.CLOUD_TRANSMISSION_TIME.modelConfig.modelTrainedFile).absolutePath)
                 ),
                 dataset
             )
@@ -272,7 +276,11 @@ class MainActivity : AppCompatActivity() {
                     ),
                     ModelFactory.createModel(
                         applicationContext,
-                        ModelVariant.CLOUD_TIME,
+                        ModelVariant.CLOUD_COMPUTATION_TIME,
+                    ),
+                    ModelFactory.createModel(
+                        applicationContext,
+                        ModelVariant.CLOUD_TRANSMISSION_TIME,
                     ),
                     forcedLocation
                 ),
@@ -292,7 +300,7 @@ class MainActivity : AppCompatActivity() {
             .fallbackToDestructiveMigration()
             .build()
         val dataset = SqlOcrDataset(db)
-        if (dataset.getCloudTimeDatasetSize() < 100) {
+        if (dataset.getCloudComputationTimeDatasetSize() < 100) {
             dataset.clear()
             lifecycleScope.launch(Dispatchers.IO) {
                 Log.d("OCR", "preparing dataset")

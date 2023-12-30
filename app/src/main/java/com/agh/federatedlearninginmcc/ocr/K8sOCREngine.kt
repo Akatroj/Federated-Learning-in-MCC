@@ -12,6 +12,8 @@ import java.io.File
 import java.io.IOException
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
+import kotlin.time.DurationUnit
+import kotlin.time.toDuration
 
 class K8sOCREngine(private val ocrUrl: String) : CloudOCREngine {
     private val client = OkHttpClient()
@@ -31,7 +33,7 @@ class K8sOCREngine(private val ocrUrl: String) : CloudOCREngine {
             if (!response.isSuccessful || response.body == null)
                 throw IOException("Failed to call OCR cloud service")
             val ocrResponse = Json.decodeFromString<OCRResponse>(response.body!!.string())
-            return@doOCR CloudOCRInfo(ocrResponse.result)
+            return@doOCR CloudOCRInfo(ocrResponse.result, ocrResponse.computationTimeMillis.toDuration(DurationUnit.MILLISECONDS))
         }
     }
 
@@ -44,4 +46,4 @@ class K8sOCREngine(private val ocrUrl: String) : CloudOCREngine {
 data class OCRRequest(val base64: String)
 
 @Serializable
-data class OCRResponse(val result: String, val version: String)
+data class OCRResponse(val result: String, val version: String, val computationTimeMillis: Int)

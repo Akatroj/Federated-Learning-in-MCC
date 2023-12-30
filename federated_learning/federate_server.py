@@ -38,8 +38,12 @@ def run_server(port):
 
 
 if __name__ == "__main__":
-    local_time_port, cloud_time_port = 8885, 8886
-    with ThreadPoolExecutor(2) as executor:
-        jobs = [executor.submit(run_server, port) for port in (local_time_port, cloud_time_port)]
+    ports = {
+        "local_time": 8885,
+        "cloud_computation_time": 8886,
+        "cloud_transmission_time": 8887
+    }
+    with ThreadPoolExecutor(len(ports)) as executor:
+        jobs = [executor.submit(run_server, port) for port in ports.values()]
         executor.shutdown()
     

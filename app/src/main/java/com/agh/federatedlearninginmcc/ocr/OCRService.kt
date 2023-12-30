@@ -5,6 +5,7 @@ import android.util.Log
 import com.agh.federatedlearninginmcc.ml.InferenceEngine
 import com.agh.federatedlearninginmcc.dataset.OCRDataset
 import java.io.File
+import java.time.Instant
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
@@ -27,11 +28,13 @@ class OCRService(
             ocrDataset.addLocallyComputedTimeSample(imgInfo, ocrTime.toDuration(DurationUnit.MILLISECONDS))
             ocrResult
         } else {
+            val startInstant = Instant.now()
             Log.d(TAG, "running OCR remotely")
             val ocrResult = cloudOCREngine.doOCR(img)
-            val ocrTime = System.currentTimeMillis() - start
-            Log.d(TAG, "OCR remote time: $ocrTime")
-            ocrDataset.addCloudComputedTimeSample(imgInfo, ocrTime.toDuration(DurationUnit.MILLISECONDS))
+            val totalTime = System.currentTimeMillis() - start
+            val transmissionTime = totalTime.toDuration(DurationUnit.MILLISECONDS) - ocrResult.computationTime
+            Log.d(TAG, "OCR remote total time: $totalTime, transmission time: $transmissionTime, computation time: ${ocrResult.computationTime}")
+            ocrDataset.addCloudComputedTimeSample(imgInfo, ocrResult.computationTime, transmissionTime, startInstant)
             ocrResult.text
         }
     }
