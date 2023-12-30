@@ -2,17 +2,19 @@ package com.agh.federatedlearninginmcc
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.icu.text.SimpleDateFormat
 import android.net.Uri
-import androidx.appcompat.app.AppCompatActivity
+import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
@@ -31,8 +33,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
-import java.util.Date
-import java.util.Locale
+import java.util.*
+
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -141,6 +143,7 @@ class MainActivity : AppCompatActivity() {
 //        testOCR()
 //        testOCR2()
         testOcrFlowerTraining()
+//        testEnergy()
     }
 
     private fun testFlowerOnFmnist() {
@@ -316,6 +319,32 @@ class MainActivity : AppCompatActivity() {
             val trainer = TrainingEngine(applicationContext, "10.0.2.2", dataset,
                 minSamplesToJoinTraining = 10, restoreTrainedModel = false)
             trainer.joinFederatedTraining()
+        }
+    }
+
+    private fun testEnergy() {
+        // on my phone it requires ~60 OCRs and about 3 minutes to drain a single battery %
+        // so imo it's totally pointless to try building energy models
+
+        val mBatteryManager = getSystemService(BATTERY_SERVICE) as BatteryManager
+        val initialBatteryLevel = mBatteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val ocr = initTesseractOcr()
+        lifecycleScope.launch(Dispatchers.IO) {
+            var i = 0
+            val start = System.currentTimeMillis()
+            while (true) {
+                i++
+                if (i % 3 == 0) {
+                    Log.d("BAT_OCR", i.toString())
+                }
+                ocr.doOCR(getTestOcrImage())
+                val batteryLevel = mBatteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                if (batteryLevel != initialBatteryLevel) {
+                    break
+                }
+            }
+            val totalTime = System.currentTimeMillis() - start
+            Log.d("BAT_OCR", "Drained 1% battery in $totalTime, required $i OCRs")
         }
     }
 }
