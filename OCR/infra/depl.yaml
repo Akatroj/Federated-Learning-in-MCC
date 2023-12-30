@@ -19,6 +19,14 @@ spec:
               cpu: "1"
             requests:
               cpu: "0.5"
+          ports:
+            - containerPort: 8080
+        - name: proxy
+          image: flok3n/ocr-proxy:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8081
+
 ---
 apiVersion: v1
 kind: Service
@@ -31,5 +39,21 @@ spec:
     - name: ocr
       protocol: TCP
       port: 8080
-      targetPort: 8080
+      targetPort: 8081
   type: LoadBalancer
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ocr-testing-service # for testing on kind or smth like this
+spec:
+  selector:
+    app: ocr
+  ports:
+    - name: ocr
+      protocol: TCP
+      port: 8082
+      targetPort: 8081
+      nodePort: 31555
+  type: NodePort

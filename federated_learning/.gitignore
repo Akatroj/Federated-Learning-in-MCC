@@ -1,0 +1,8 @@
+env
+model_lite
+tfmodel
+fed_trained_model
+model.tflite
+models
+fmnist_testing/fmnist_images
+__pycache__
