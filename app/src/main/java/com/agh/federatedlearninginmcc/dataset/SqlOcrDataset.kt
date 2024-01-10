@@ -166,7 +166,7 @@ interface LocalBenchmarkTaskInfoDao {
     LocallyComputedTimeSample::class,
     CloudComputedTimeSample::class,
     LocalBenchmarkTaskInfo::class,
-), version = 3)
+), version = 4)
 abstract class OcrDatabase: RoomDatabase() {
     abstract fun locallyComputedTimeSampleDao(): LocallyComputedTimeSampleDao
     abstract fun cloudComputedTimeSampleDao(): CloudComputedTimeSampleDao

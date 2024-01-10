@@ -44,6 +44,8 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "MainActivity"
         private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
         private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
+        private const val K8S_OCR_URL = "http://172.18.0.3:31555/base64"
+        private const val FLOWER_SERVER_IP = "10.0.2.2"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -141,14 +143,14 @@ class MainActivity : AppCompatActivity() {
 //         testTensorflowLocalTrainingOnFmnist()
 
 //        testOCR()
-//        testOCR2()
-        testOcrFlowerTraining()
+        testOCR2(((1100..<1140).map { getOcrImageFile(it) }))
+//        testOcrFlowerTraining()
 //        testEnergy()
     }
 
     private fun testFlowerOnFmnist() {
         // run python server locally before running this
-        val tester = FmnistFederatedTesting(this, "10.0.2.2", 8085)
+        val tester = FmnistFederatedTesting(this, FLOWER_SERVER_IP, 8085)
         lifecycleScope.launch(Dispatchers.IO) {
             // depending on the server configuration the line below suffices to start the federated training
             // server should print some training logs and exit if everything went properly
@@ -157,7 +159,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun testTensorflowPredictionOnFmnist(useLocallyTrainedModel: Boolean = false) {
-        val tester = FmnistFederatedTesting(this, "10.0.2.2", 8085)
+        val tester = FmnistFederatedTesting(this, FLOWER_SERVER_IP, 8085)
         lifecycleScope.launch {
             tester.apply {
                 val interp = loadModel(useLocallyTrainedModel)
@@ -167,7 +169,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun testTensorflowLocalTrainingOnFmnist() {
-        val tester = FmnistFederatedTesting(this, "10.0.2.2", 8085)
+        val tester = FmnistFederatedTesting(this, FLOWER_SERVER_IP, 8085)
         lifecycleScope.launch {
             tester.apply {
                 var interp = loadModel(false)
@@ -194,13 +196,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getTestOcrImage(): File {
-        val testImgFile = File(filesDir, "ocr_test_img_small.png")
-//        val testImgFile = File(filesDir, "ocr_test_img.png")
-        if (!testImgFile.exists()) {
-            assets.open(testImgFile.name).use { inputStream ->
-                testImgFile.outputStream().use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
+        return getOcrImageFile(0)
+    }
+
+    private fun getOcrImageFile(imgId: Int): File {
+        val imgName = "img_$imgId.jpg"
+        val assetPath = "preprocessed/$imgName"
+        val testImgFile = File(filesDir, imgName)
+        assets.open(assetPath).use { inputStream ->
+            testImgFile.outputStream().use { outputStream ->
+                inputStream.copyTo(outputStream)
             }
         }
         return testImgFile
@@ -214,7 +219,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun testOCR2() {
+    private fun testOCR2(imgs: List<File> = listOf(getTestOcrImage())) {
         val db = Room.databaseBuilder(applicationContext, OcrDatabase::class.java, "ocrdatabase")
             .allowMainThreadQueries()
             .fallbackToDestructiveMigration()
@@ -222,7 +227,7 @@ class MainActivity : AppCompatActivity() {
         val dataset = SqlOcrDataset(db)
 
         val localOcr = initTesseractOcr()
-        val cloudOcr = K8sOCREngine("http://172.18.0.3:31555/base64")
+        val cloudOcr = K8sOCREngine(K8S_OCR_URL)
         val benchmarkHandler = BenchmarkHandler(dataset, localOcr, getTestOcrImage())
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -236,6 +241,7 @@ class MainActivity : AppCompatActivity() {
                     ModelFactory.createModel(
                         applicationContext,
                         ModelVariant.LOCAL_TIME,
+//                    ),
                     ).restoredFrom(File(filesDir, ModelVariant.LOCAL_TIME.modelConfig.modelTrainedFile).absolutePath),
                     ModelFactory.createModel(
                         applicationContext,
@@ -244,16 +250,44 @@ class MainActivity : AppCompatActivity() {
                     ModelFactory.createModel(
                         applicationContext,
                         ModelVariant.CLOUD_TRANSMISSION_TIME,
-                    ).restoredFrom(File(filesDir, ModelVariant.CLOUD_TRANSMISSION_TIME.modelConfig.modelTrainedFile).absolutePath)
+                    ).restoredFrom(File(filesDir, ModelVariant.CLOUD_TRANSMISSION_TIME.modelConfig.modelTrainedFile).absolutePath),
+                    runningLocation = RunningLocation.PREDICT
                 ),
-                dataset
+                dataset,
             )
 
-            Log.d("OCR", "Launching OCR")
-            val res = ocrService.doOCR(getTestOcrImage())
-            Log.d("OCR", res)
+            imgs.forEach {
+                Log.d("OCR", "Launching OCR")
+                val res = ocrService.doOCR(it)
+                Log.d("OCR", res)
+            }
+
+            ocrService.printStats()
         }
     }
+
+    private fun createOCRService(dataset: OCRDataset, forcedLocation: RunningLocation): OCRService =
+        OCRService(
+            initTesseractOcr(),
+            K8sOCREngine(K8S_OCR_URL),
+            InferenceEngine(
+                dataset,
+                ModelFactory.createModel(
+                    applicationContext,
+                    ModelVariant.LOCAL_TIME,
+                ),
+                ModelFactory.createModel(
+                    applicationContext,
+                    ModelVariant.CLOUD_COMPUTATION_TIME,
+                ),
+                ModelFactory.createModel(
+                    applicationContext,
+                    ModelVariant.CLOUD_TRANSMISSION_TIME,
+                ),
+                forcedLocation
+            ),
+            dataset,
+        )
 
     private fun prepareTestingDataset(dataset: OCRDataset, repeats: Int = 10) {
         dataset.clear()
@@ -268,31 +302,32 @@ class MainActivity : AppCompatActivity() {
         }.toList()
 
          listOf(RunningLocation.FORCE_LOCAL, RunningLocation.FORCE_CLOUD).forEach { forcedLocation ->
-            val ocrService = OCRService(
-                initTesseractOcr(),
-                K8sOCREngine("http://172.18.0.3:31555/base64"),
-                InferenceEngine(
-                    dataset,
-                    ModelFactory.createModel(
-                        applicationContext,
-                        ModelVariant.LOCAL_TIME,
-                    ),
-                    ModelFactory.createModel(
-                        applicationContext,
-                        ModelVariant.CLOUD_COMPUTATION_TIME,
-                    ),
-                    ModelFactory.createModel(
-                        applicationContext,
-                        ModelVariant.CLOUD_TRANSMISSION_TIME,
-                    ),
-                    forcedLocation
-                ),
-                dataset,
-            )
-
+            val ocrService = createOCRService(dataset, forcedLocation)
             for (i in 0..<repeats) {
                 imgFiles.forEach { ocrService.doOCR(it) }
             }
+        }
+        Log.d("OCR", "dataset ready")
+    }
+
+    private fun prepareTrainingDataset(dataset: OCRDataset, deviceId: Int, numDevices: Int = 2, totalImages: Int = 1200) {
+        val firstImg = (totalImages / numDevices) * deviceId
+        val lastImg = ((totalImages / numDevices) * (deviceId + 1)).coerceAtMost(totalImages)
+        Log.d("DATASET_PREP", "DeviceId=$deviceId taking split ($firstImg, $lastImg) from $totalImages")
+
+        val imgFiles = (firstImg..<lastImg).map {
+            val testImgFile = File(filesDir, "img_$it.jpg")
+            assets.open("preprocessed/img_$it.jpg").use { inputStream ->
+                testImgFile.outputStream().use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+            testImgFile
+        }.toList()
+
+        listOf(RunningLocation.FORCE_CLOUD).forEach { forcedLocation ->
+            val ocrService = createOCRService(dataset, forcedLocation)
+            imgFiles.forEach { ocrService.doOCR(it) }
         }
         Log.d("OCR", "dataset ready")
     }
@@ -303,11 +338,11 @@ class MainActivity : AppCompatActivity() {
             .fallbackToDestructiveMigration()
             .build()
         val dataset = SqlOcrDataset(db)
-        if (dataset.getCloudComputationTimeDatasetSize() < 100) {
-            dataset.clear()
+        if (dataset.getCloudComputationTimeDatasetSize() < 0) { // TODO
             lifecycleScope.launch(Dispatchers.IO) {
                 Log.d("OCR", "preparing dataset")
-                prepareTestingDataset(dataset)
+//                prepareTestingDataset(dataset)
+                prepareTrainingDataset(dataset, 0)
             }
         }
         val localOcr = initTesseractOcr()
@@ -316,7 +351,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             Log.d("OCR", "Joining federated training")
             benchmarkHandler.assertHasRunBenchmark()
-            val trainer = TrainingEngine(applicationContext, "10.0.2.2", dataset,
+            val trainer = TrainingEngine(applicationContext, FLOWER_SERVER_IP, dataset,
                 minSamplesToJoinTraining = 10, restoreTrainedModel = false)
             trainer.joinFederatedTraining()
         }

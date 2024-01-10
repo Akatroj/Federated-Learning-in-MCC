@@ -9,6 +9,8 @@ import java.time.Instant
 import java.time.ZoneId
 import kotlin.time.Duration
 
+const val BENCHMARK_TIME_SCALE_COEF = 2000.0f
+
 abstract class OCRDataset {
     // TODO make all add/get thread safe
     private val datasetObservers: MutableList<(modelVariant: ModelVariant) -> Unit> = mutableListOf()
@@ -58,7 +60,7 @@ abstract class OCRDataset {
         }
     }
 
-    fun getBenchmarkInfoDims(modelVariant: ModelVariant): IntArray {
+    private fun getBenchmarkInfoDims(modelVariant: ModelVariant): IntArray {
         return intArrayOf(0)
     }
 
@@ -76,21 +78,27 @@ abstract class OCRDataset {
     }
 
     fun createLocalTimeXSample(benchmarkInfo: BenchmarkInfo, imgInfo: ImageInfo): FloatArray {
-        val res = FloatArray(4)
-        res[0] = benchmarkInfo.meanComputationTime.inWholeMilliseconds.toFloat()
-        res[1] = imgInfo.width.toFloat()
-        res[2] = imgInfo.height.toFloat()
-        res[3] = imgInfo.sizeBytes.toFloat()
+        val res = FloatArray(6)
+        assert(res.size == ModelVariant.LOCAL_TIME.modelConfig.inputDimensions)
+        res[0] = benchmarkInfo.meanComputationTime.inWholeMilliseconds.toFloat() / BENCHMARK_TIME_SCALE_COEF
+        fillImageInfo(imgInfo, res, 1)
         return res
     }
 
     fun createCloudTimeXSample(benchmarkInfo: BenchmarkInfo, imgInfo: ImageInfo, timeOfDay: Float): FloatArray {
-        val res = FloatArray(5)
-        res[0] = benchmarkInfo.meanComputationTime.inWholeMilliseconds.toFloat()
-        res[1] = imgInfo.width.toFloat()
-        res[2] = imgInfo.height.toFloat()
-        res[3] = imgInfo.sizeBytes.toFloat()
-        res[4] = timeOfDay
+        val res = FloatArray(7)
+        assert(res.size == ModelVariant.CLOUD_COMPUTATION_TIME.modelConfig.inputDimensions)
+        res[0] = benchmarkInfo.meanComputationTime.inWholeMilliseconds.toFloat() / BENCHMARK_TIME_SCALE_COEF
+        fillImageInfo(imgInfo, res, 1)
+        res[6] = timeOfDay
         return res
+    }
+
+    private fun fillImageInfo(imgInfo: ImageInfo, arr: FloatArray, start: Int) {
+        arr[start] = imgInfo.width.toFloat()
+        arr[start + 1] = imgInfo.height.toFloat()
+        arr[start + 2] = imgInfo.sizeBytes.toFloat()
+        arr[start + 3] = imgInfo.textToBackgroundRatio
+        arr[start + 4] = imgInfo.numTextLines.toFloat()
     }
 }

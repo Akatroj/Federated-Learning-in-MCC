@@ -7,10 +7,10 @@ enum class ModelVariant(val key: ModelVariantKey, val modelConfig: ModelConfig, 
         0,
         ModelConfig(
             "local_time.tflite",
-            "local_time.trained.tflite",
+            "local_time_v5.trained.tflite",
             "local_time",
-            4,
-            intArrayOf(4 * 5, 5, 5 * 1, 1), // weights1, biases1, weights2...
+            inputDimensions = 6,
+            layerSizes = intArrayOf(6 * 32, 32, 32 * 16, 16, 16 * 8, 8, 8 * 4, 4, 4 * 1, 1),
             ),
         TrainerConfig("localTime", 8885)
     ),
@@ -18,10 +18,10 @@ enum class ModelVariant(val key: ModelVariantKey, val modelConfig: ModelConfig, 
         1,
         ModelConfig(
             "cloud_computation_time.tflite",
-            "cloud_computation_time.trained.tflite",
+            "cloud_computation_time_v2.trained.tflite",
             "cloud_computation_time",
-            5,
-            intArrayOf(5 * 10, 10, 10 * 5, 5, 5 * 1, 1),
+            inputDimensions = 7,
+            layerSizes = intArrayOf(7 * 32, 32, 32 * 16, 16, 16 * 8, 8, 8 * 4, 4, 4 * 1, 1),
         ),
         TrainerConfig("cloudComputationTime", 8886)
     ),
@@ -29,10 +29,10 @@ enum class ModelVariant(val key: ModelVariantKey, val modelConfig: ModelConfig, 
         2,
         ModelConfig(
             "cloud_transmission_time.tflite",
-            "cloud_transmission_time.trained.tflite",
+            "cloud_transmission_time_v2.trained.tflite",
             "cloud_transmission_time",
-            5,
-            intArrayOf(5 * 10, 10, 10 * 5, 5, 5 * 1, 1),
+            inputDimensions = 7,
+            layerSizes = intArrayOf(7 * 16, 16, 16 * 8, 8, 8 * 1, 1),
         ),
         TrainerConfig("cloudTransmissionTime", 8887)
     )

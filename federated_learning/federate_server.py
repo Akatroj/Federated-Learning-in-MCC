@@ -8,7 +8,7 @@ def fit_config(server_round: int):
     """Return training configuration dict for each round.
     """
     config = {
-        "batch_size": 2,
+        "batch_size": 8,
         "local_epochs": 3,
     }
     return config
@@ -30,7 +30,7 @@ def run_server(port):
         print(f'running server on port {port}')
         start_server(
             server_address=f"0.0.0.0:{port}",
-            config=ServerConfig(num_rounds=30), # won't start next round if client has small dataset
+            config=ServerConfig(num_rounds=10), # won't start next round if client has small dataset
             strategy=strategy,
         )
     except KeyboardInterrupt:

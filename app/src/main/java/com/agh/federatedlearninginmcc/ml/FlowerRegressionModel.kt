@@ -171,7 +171,6 @@ class FlowerRegressionModel(
                 nextIndex += batchSize
 
                 if (nextIndex >= samples.size) {
-                    fromIndex = max(0, samples.size - batchSize)
                     nextIndex = samples.size
                 }
 
