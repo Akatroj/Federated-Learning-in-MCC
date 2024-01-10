@@ -57,6 +57,8 @@ android {
 
 dependencies {
     implementation(project(":stub-android"))
+    implementation("androidx.navigation:navigation-fragment-ktx:2.7.6")
+    implementation("androidx.navigation:navigation-ui-ktx:2.7.6")
     runtimeOnly("io.grpc:grpc-okhttp:${rootProject.ext["grpcVersion"]}")
     implementation("androidx.activity:activity-compose:1.8.0")
     implementation("androidx.compose.foundation:foundation-layout:$composeVersion")

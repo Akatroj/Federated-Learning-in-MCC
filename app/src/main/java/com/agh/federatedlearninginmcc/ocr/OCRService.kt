@@ -31,8 +31,7 @@ class OCRService(
         Log.d(TAG, "Inference time: ${System.currentTimeMillis() - inferenceStart}ms, " +
                 "Local cost: ${prediction.localTime.cost}, Cloud cost: ${prediction.cloudTime.cost}")
 
-//        return if (prediction.shouldRunLocally) {
-        return if (false) {
+        return if (prediction.shouldRunLocally) {
             Log.d(TAG, "running OCR locally")
 
             val ocrResult = localOCREngine.doOCR(img)
@@ -66,14 +65,14 @@ class OCRService(
         }
     }
 
-    fun printStats() {
+    fun printStatsAndGetSummary(): String {
         val variants = mapOf(
             ModelVariant.LOCAL_TIME to localTimeInferenceInfo,
             ModelVariant.CLOUD_COMPUTATION_TIME to cloudComputationTimeInferenceInfo,
             ModelVariant.CLOUD_TRANSMISSION_TIME to cloudTransmissionTimeInferenceInfo
         )
 
-        variants.entries.filter { it.value.isNotEmpty() }.forEach { entry ->
+        return variants.entries.filter { it.value.isNotEmpty() }.map { entry ->
             var squaredError = 0.0f
             var absError = 0.0f
             entry.value.forEach { (yPred, yTrue) ->
@@ -83,7 +82,8 @@ class OCRService(
             val rmse = sqrt(squaredError / entry.value.size)
             val mae = absError / entry.value.size
             Log.i(TAG, "Model: ${entry.key.name} Stats: samples=${entry.value.size} rmse=${rmse} mae=${mae}")
-        }
+            "${entry.key.name}=$mae"
+        }.joinToString { it }
     }
 
     companion object {

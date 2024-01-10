@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_main"
+    app:startDestination="@id/trainingFragment">
+
+    <fragment
+        android:id="@+id/ocrFragment"
+        android:name="com.agh.federatedlearninginmcc.OcrFragment"
+        android:label="fragment_ocr"
+        tools:layout="@layout/fragment_ocr" >
+        <action
+            android:id="@+id/action_ocrFragment_to_trainingFragment"
+            app:destination="@id/trainingFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/trainingFragment"
+        android:name="com.agh.federatedlearninginmcc.TrainingFragment"
+        android:label="fragment_training"
+        tools:layout="@layout/fragment_training" >
+        <action
+            android:id="@+id/action_trainingFragment_to_ocrFragment"
+            app:destination="@id/ocrFragment" />
+    </fragment>
+</navigation>

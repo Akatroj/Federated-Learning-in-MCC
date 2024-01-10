@@ -135,11 +135,6 @@ class FlowerRegressionModel(
         runSignatureLocked(inputs, outputs, "restore")
     }
 
-    fun restoredFrom(path: String): FlowerRegressionModel {
-        restoreFromDisk(path)
-        return this
-    }
-
     /**
      * Not thread-safe because we assume [trainSampleLock] is already acquired.
      */
