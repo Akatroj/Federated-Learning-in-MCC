@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: federated-server
+spec:
+  template:
+    spec:
+      containers:
+        - name: federated-server
+          image: flok3n/federated-server:latest
+          imagePullPolicy: Always
+          args:
+            - "3" # min clients
+            - "15" # training rounds
+          ports:
+            - containerPort: 8885
+            - containerPort: 8886
+            - containerPort: 8887
+      restartPolicy: Never
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: federated-service
+spec:
+  selector:
+    job-name: federated-server
+  ports:
+    - name: model1
+      protocol: TCP
+      port: 8885
+      targetPort: 8885
+    - name: model2
+      protocol: TCP
+      port: 8886
+      targetPort: 8886
+    - name: model3
+      protocol: TCP
+      port: 8887
+      targetPort: 8887
+  type: LoadBalancer

@@ -11,7 +11,6 @@ def create_local_time_model(output_dir=MODELS_DIR) -> tuple[TFLiteModelWrapper, 
     output_path = f'{output_dir}/local_time.tflite'
 
     model = tf.keras.Sequential([
-        tf.keras.layers.Dense(32, activation='relu', kernel_regularizer=tf.keras.regularizers.l2()),
         tf.keras.layers.Dense(16, activation='relu', kernel_regularizer=tf.keras.regularizers.l2()),
         tf.keras.layers.Dense(8, activation='relu', kernel_regularizer=tf.keras.regularizers.l2()),
         tf.keras.layers.Dense(4, activation='relu'),
@@ -28,11 +27,10 @@ def create_local_time_model(output_dir=MODELS_DIR) -> tuple[TFLiteModelWrapper, 
     return tflite_wrapper, output_path
 
 def create_cloud_computation_time_model(output_dir=MODELS_DIR) -> tuple[TFLiteModelWrapper, str]:
-    input_dimensions = 7
+    input_dimensions = 8
     output_path = f'{output_dir}/cloud_computation_time.tflite'
 
     model = tf.keras.Sequential([
-        tf.keras.layers.Dense(32, activation='relu', kernel_regularizer=tf.keras.regularizers.l2()),
         tf.keras.layers.Dense(16, activation='relu'),
         tf.keras.layers.Dense(8, activation='relu'),
         tf.keras.layers.Dense(4, activation='relu'),
@@ -50,7 +48,7 @@ def create_cloud_computation_time_model(output_dir=MODELS_DIR) -> tuple[TFLiteMo
     return tflite_wrapper, output_path
 
 def create_cloud_transmission_time_model(output_dir=MODELS_DIR) -> tuple[TFLiteModelWrapper, str]:
-    input_dimensions = 7
+    input_dimensions = 5
     output_path = f'{output_dir}/cloud_transmission_time.tflite'
 
     model = tf.keras.Sequential([

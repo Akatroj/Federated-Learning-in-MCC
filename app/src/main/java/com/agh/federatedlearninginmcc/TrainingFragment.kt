@@ -26,6 +26,8 @@ import com.agh.federatedlearninginmcc.ocr.K8sOCREngine
 import com.agh.federatedlearninginmcc.ocr.LocalOCREngine
 import com.agh.federatedlearninginmcc.ocr.OCRService
 import com.agh.federatedlearninginmcc.ocr.TesseractOCREngine
+import com.agh.federatedlearninginmcc.ocr.TransmissionTestInfo
+import com.agh.federatedlearninginmcc.ocr.TransmissionTester
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
@@ -36,11 +38,16 @@ class TrainingFragment : Fragment() {
     private lateinit var dataset: OCRDataset
     private lateinit var localOcr: LocalOCREngine
     private lateinit var benchmarkHandler: BenchmarkHandler
+    private lateinit var transmissionTester: TransmissionTester
 
     companion object {
-        private const val K8S_OCR_URL = "http://172.18.0.3:31555/base64"
-        private const val FLOWER_SERVER_IP = "10.0.2.2" // localhost from emulator
+//        private const val K8S_OCR_URL = "http://172.18.0.3:31555/base64"
+        private const val K8S_OCR_URL = "http://34.116.247.243:8080/base64"
+//        private const val FLOWER_SERVER_IP = "10.0.2.2" // localhost from emulator
+        private const val FLOWER_SERVER_IP = "34.116.231.98"
+        private const val TRANSMISSION_TESTING_URL = "http://34.107.121.153:8080/info"
         private const val TOTAL_IMAGES = 300
+        private const val DELAY_FACTOR = 1.0f // totalTime = originalTime + delayFactor * originalTime
     }
 
     override fun onCreateView(
@@ -60,6 +67,7 @@ class TrainingFragment : Fragment() {
         dataset = SqlOcrDataset(db)
         localOcr = initTesseractOcr()
         benchmarkHandler = BenchmarkHandler(dataset, localOcr, getBenchmarkImage())
+        transmissionTester = TransmissionTester(TRANSMISSION_TESTING_URL)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -98,6 +106,10 @@ class TrainingFragment : Fragment() {
                 }
             }
         }
+        lifecycleScope.launch(Dispatchers.IO) {
+            val tt = TransmissionTester("http://34.107.121.153:8080/info").runTransmissionTest()
+            Log.d("TTTTT", tt.toString())
+        }
     }
 
     private fun initTesseractOcr(): TesseractOCREngine {
@@ -111,7 +123,7 @@ class TrainingFragment : Fragment() {
                 }
             }
         }
-        return TesseractOCREngine(requireContext().filesDir.path)
+        return TesseractOCREngine(requireContext().filesDir.path, artificialDelayFactor = DELAY_FACTOR)
     }
 
     private fun updateDatasetStatus() {
@@ -139,7 +151,12 @@ class TrainingFragment : Fragment() {
         return testImgFile
     }
 
-    private fun createOCRService(dataset: OCRDataset, forcedLocation: RunningLocation = RunningLocation.PREDICT, restoreModels: Boolean = true): OCRService {
+    private fun createOCRService(
+        dataset: OCRDataset,
+        transmissionTestInfo: TransmissionTestInfo,
+        runningLocation: RunningLocation = RunningLocation.PREDICT,
+        restoreModels: Boolean = true
+    ): OCRService {
         return OCRService(
             initTesseractOcr(),
             K8sOCREngine(K8S_OCR_URL),
@@ -160,16 +177,18 @@ class TrainingFragment : Fragment() {
                     ModelVariant.CLOUD_TRANSMISSION_TIME,
                     restoreModels
                 ),
-                forcedLocation
+                runningLocation
             ),
             dataset,
+            transmissionTestInfo
         )
     }
 
     private fun testModels(imgs: List<File> = listOf(getBenchmarkImage()), trained: Boolean = true) {
         lifecycleScope.launch(Dispatchers.IO) {
             benchmarkHandler.assertHasRunBenchmark()
-            val ocrService = createOCRService(dataset, RunningLocation.PREDICT, trained)
+            val transmissionTestInfo = transmissionTester.runTransmissionTest()
+            val ocrService = createOCRService(dataset, transmissionTestInfo, RunningLocation.PREDICT, trained)
 
             imgs.forEach {
                 Log.d("OCR", "Launching OCR")
@@ -214,7 +233,8 @@ class TrainingFragment : Fragment() {
                 RunningLocation.FORCE_LOCAL,
                 RunningLocation.FORCE_CLOUD
             ).forEach { forcedLocation ->
-                val ocrService = createOCRService(dataset, forcedLocation)
+                val transmissionTestInfo = transmissionTester.runTransmissionTest()
+                val ocrService = createOCRService(dataset, transmissionTestInfo, forcedLocation, restoreModels = false)
                 imgFiles.forEach { ocrService.doOCR(it) }
             }
 
@@ -241,7 +261,7 @@ class TrainingFragment : Fragment() {
             Log.d("OCR", "Joining federated training")
             benchmarkHandler.assertHasRunBenchmark()
             val trainer = TrainingEngine(requireContext(), FLOWER_SERVER_IP, dataset,
-                minSamplesToJoinTraining = 100, restoreTrainedModel = false)
+                minSamplesToJoinTraining = 20, restoreTrainedModel = false)
             trainer.joinFederatedTraining()
         }
     }

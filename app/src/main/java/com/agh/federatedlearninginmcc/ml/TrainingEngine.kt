@@ -68,7 +68,6 @@ class TrainingEngine(
 
         // TODO it's a pretty strong assumption that mean+std of samples from this client matches
         // those of global dataset, we should get them from server (and send them for averaging too)
-        dataset.getNormalizationStats(modelVariant, benchmarkInfo)
         val normalizationStats = dataset.getNormalizationStats(modelVariant, benchmarkInfo)
         val model = ModelFactory.createModel(context, modelVariant, false)
 

@@ -50,7 +50,7 @@
             android:orientation="horizontal"
             android:gravity="center">
             <TextView
-                android:layout_width="200dp"
+                android:layout_width="180dp"
                 android:layout_height="wrap_content"
                 android:text="Device ID"
                 android:gravity="center_vertical"
@@ -74,7 +74,7 @@
             android:orientation="horizontal"
             android:gravity="center">
             <TextView
-                android:layout_width="200dp"
+                android:layout_width="180dp"
                 android:layout_height="wrap_content"
                 android:text="Total devices"
                 android:gravity="center_vertical"
@@ -98,7 +98,7 @@
             android:orientation="horizontal"
             android:gravity="center">
             <TextView
-                android:layout_width="220dp"
+                android:layout_width="180dp"
                 android:layout_height="wrap_content"
                 android:text="Prepare samples for training on this device"
                 android:gravity="center_vertical"
@@ -122,7 +122,7 @@
             android:orientation="horizontal"
             android:gravity="center">
             <TextView
-                android:layout_width="220dp"
+                android:layout_width="180dp"
                 android:layout_height="wrap_content"
                 android:text="Join federated training"
                 android:gravity="center_vertical"
@@ -163,7 +163,7 @@
             android:orientation="horizontal"
             android:gravity="center">
             <TextView
-                android:layout_width="200dp"
+                android:layout_width="180dp"
                 android:layout_height="wrap_content"
                 android:text="Check how many OCRs are required to drain 1% battery"
                 android:gravity="center_vertical"
@@ -187,7 +187,7 @@
             android:orientation="horizontal"
             android:gravity="center">
             <TextView
-                android:layout_width="220dp"
+                android:layout_width="180dp"
                 android:layout_height="wrap_content"
                 android:text="Test trained models on stored images"
                 android:gravity="center_vertical"
@@ -211,7 +211,7 @@
             android:orientation="horizontal"
             android:gravity="center">
             <TextView
-                android:layout_width="220dp"
+                android:layout_width="180dp"
                 android:layout_height="wrap_content"
                 android:text="Test untrained models on stored images"
                 android:gravity="center_vertical"
@@ -235,7 +235,7 @@
             android:orientation="horizontal"
             android:gravity="center">
             <TextView
-                android:layout_width="220dp"
+                android:layout_width="180dp"
                 android:layout_height="wrap_content"
                 android:text="Remove all samples"
                 android:gravity="center_vertical"

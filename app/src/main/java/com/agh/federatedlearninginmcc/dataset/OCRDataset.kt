@@ -10,6 +10,8 @@ import java.time.ZoneId
 import kotlin.time.Duration
 
 const val BENCHMARK_TIME_SCALE_COEF = 2000.0f
+const val NODES_NUM_SCALE_COEF = 5.0f
+const val RTT_SCALE_COEF = 1000.0f
 
 abstract class OCRDataset {
     // TODO make all add/get thread safe
@@ -17,7 +19,13 @@ abstract class OCRDataset {
 
     abstract fun addLocallyComputedTimeSample(imgInfo: ImageInfo, computationTime: Duration)
     abstract fun addCloudComputedTimeSample(
-        imgInfo: ImageInfo, computationTime: Duration, transmissionTime: Duration, executedAt: Instant)
+        imgInfo: ImageInfo,
+        computationTime: Duration,
+        transmissionTime: Duration,
+        executedAt: Instant,
+        numNodes: Int,
+        rttMillis: Int
+    )
     abstract fun addBenchmarkInfo(benchmarkInfo: BenchmarkInfo)
 
     // full dataset for simplicity, should probably be in batches
@@ -44,8 +52,7 @@ abstract class OCRDataset {
         val (xs, ys) = getDataset(modelVariant, benchmarkInfo)
         // TODO cache this
         val normalizationStats = DataUtils.getNormalizationStats(xs, ys, modelVariant.modelConfig.inputDimensions)
-        // TODO how to handle this properly, we can't standardize as all values are equal
-        getBenchmarkInfoDims(modelVariant).forEach { dim ->
+        modelVariant.modelConfig.dontStandardizeDims.forEach { dim ->
             normalizationStats.xMeans[dim] = 0.0f
             normalizationStats.xStds[dim] = 1.0f
         }
@@ -58,10 +65,6 @@ abstract class OCRDataset {
             ModelVariant.CLOUD_COMPUTATION_TIME -> getCloudComputationTimeDatasetSize()
             ModelVariant.CLOUD_TRANSMISSION_TIME -> getCloudTransmissionTimeDatasetSize()
         }
-    }
-
-    private fun getBenchmarkInfoDims(modelVariant: ModelVariant): IntArray {
-        return intArrayOf(0)
     }
 
     fun addDatasetUpdatedObserver(observer: (modelVariant: ModelVariant) -> Unit) {
@@ -80,17 +83,32 @@ abstract class OCRDataset {
     fun createLocalTimeXSample(benchmarkInfo: BenchmarkInfo, imgInfo: ImageInfo): FloatArray {
         val res = FloatArray(6)
         assert(res.size == ModelVariant.LOCAL_TIME.modelConfig.inputDimensions)
+        assert(ModelVariant.LOCAL_TIME.modelConfig.dontStandardizeDims.contains(0))
         res[0] = benchmarkInfo.meanComputationTime.inWholeMilliseconds.toFloat() / BENCHMARK_TIME_SCALE_COEF
         fillImageInfo(imgInfo, res, 1)
         return res
     }
 
-    fun createCloudTimeXSample(benchmarkInfo: BenchmarkInfo, imgInfo: ImageInfo, timeOfDay: Float): FloatArray {
-        val res = FloatArray(7)
+    fun createCloudComputationTimeXSample(benchmarkInfo: BenchmarkInfo, imgInfo: ImageInfo, numNodes: Int, timeOfDay: Float): FloatArray {
+        val res = FloatArray(8)
         assert(res.size == ModelVariant.CLOUD_COMPUTATION_TIME.modelConfig.inputDimensions)
+        assert(ModelVariant.CLOUD_COMPUTATION_TIME.modelConfig.dontStandardizeDims.containsAll(listOf(0, 6, 7)))
         res[0] = benchmarkInfo.meanComputationTime.inWholeMilliseconds.toFloat() / BENCHMARK_TIME_SCALE_COEF
         fillImageInfo(imgInfo, res, 1)
         res[6] = timeOfDay
+        res[7] = numNodes.toFloat() / NODES_NUM_SCALE_COEF
+        return res
+    }
+
+    fun createCloudTransmissionTimeXSample(benchmarkInfo: BenchmarkInfo, imgInfo: ImageInfo, numNodes: Int, rttMillis: Int, timeOfDay: Float): FloatArray {
+        val res = FloatArray(5)
+        assert(res.size == ModelVariant.CLOUD_TRANSMISSION_TIME.modelConfig.inputDimensions)
+        assert(ModelVariant.CLOUD_TRANSMISSION_TIME.modelConfig.dontStandardizeDims.containsAll(listOf(0, 2, 3, 4)))
+        res[0] = benchmarkInfo.meanComputationTime.inWholeMilliseconds.toFloat() / BENCHMARK_TIME_SCALE_COEF
+        res[1] = imgInfo.sizeBytes.toFloat()
+        res[2] = timeOfDay
+        res[3] = numNodes.toFloat() / NODES_NUM_SCALE_COEF
+        res[4] = rttMillis.toFloat() / RTT_SCALE_COEF
         return res
     }
 

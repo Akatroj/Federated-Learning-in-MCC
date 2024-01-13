@@ -12,26 +12,30 @@ import kotlin.math.sqrt
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
+// not thread-safe
 class OCRService(
     private val localOCREngine: LocalOCREngine,
     private val cloudOCREngine: CloudOCREngine,
     private val inferenceEngine: InferenceEngine,
     private val ocrDataset: OCRDataset,
+    private val transmissionTestInfo: TransmissionTestInfo
 ){
     private val localTimeInferenceInfo = mutableListOf<Pair<Float, Float>>()
     private val cloudComputationTimeInferenceInfo = mutableListOf<Pair<Float, Float>>()
     private val cloudTransmissionTimeInferenceInfo = mutableListOf<Pair<Float, Float>>()
 
-    fun doOCR(img: File): String {
-        val start = System.currentTimeMillis()
+    private var currentNumNodes = transmissionTestInfo.nodes
+
+    fun doOCR(img: File, forceLocalExecution: Boolean = false): String {
+        var start = System.currentTimeMillis()
 
         val inferenceStart = System.currentTimeMillis()
         val imgInfo = ImageUtils.createImageInfo(img)
-        val prediction = inferenceEngine.predictComputationTimes(imgInfo)
+        val prediction = inferenceEngine.predictComputationTimes(imgInfo, currentNumNodes, transmissionTestInfo.rttMs)
         Log.d(TAG, "Inference time: ${System.currentTimeMillis() - inferenceStart}ms, " +
                 "Local cost: ${prediction.localTime.cost}, Cloud cost: ${prediction.cloudTime.cost}")
 
-        return if (prediction.shouldRunLocally) {
+        return if (forceLocalExecution || prediction.shouldRunLocally) {
             Log.d(TAG, "running OCR locally")
 
             val ocrResult = localOCREngine.doOCR(img)
@@ -42,10 +46,19 @@ class OCRService(
             localTimeInferenceInfo.add(Pair(prediction.localTime.timeMs, ocrTime.toFloat()))
             ocrResult
         } else {
-            val startInstant = Instant.now()
+            var startInstant = Instant.now()
             Log.d(TAG, "running OCR remotely")
 
-            val ocrResult = cloudOCREngine.doOCR(img)
+            val ocrResult: CloudOCRInfo
+            try {
+                ocrResult = cloudOCREngine.doOCR(img)
+                currentNumNodes = ocrResult.numNodes
+            } catch (e: Exception) {
+                // this may happen e.g. when pod dies due to overload
+                Log.e(TAG, "cloud OCR failed, retrying locally", e)
+                return doOCR(img, forceLocalExecution=true)
+            }
+
             val totalTime = System.currentTimeMillis() - start
             val transmissionTime = totalTime.toDuration(DurationUnit.MILLISECONDS) - ocrResult.computationTime
 
@@ -55,7 +68,8 @@ class OCRService(
                     "computation time: ${ocrResult.computationTime}, " +
                     "predicted computation time: ${prediction.cloudTime.computationTimeMs}" )
 
-            ocrDataset.addCloudComputedTimeSample(imgInfo, ocrResult.computationTime, transmissionTime, startInstant)
+            ocrDataset.addCloudComputedTimeSample(imgInfo, ocrResult.computationTime, transmissionTime,
+                startInstant, currentNumNodes, transmissionTestInfo.rttMs)
             cloudComputationTimeInferenceInfo.add(Pair(
                 prediction.cloudTime.computationTimeMs, ocrResult.computationTime.inWholeMilliseconds.toFloat()))
             cloudTransmissionTimeInferenceInfo.add(Pair(

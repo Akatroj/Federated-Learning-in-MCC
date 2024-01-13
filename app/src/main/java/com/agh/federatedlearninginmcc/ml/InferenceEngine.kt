@@ -11,16 +11,18 @@ class InferenceEngine(
     private val cloudComputationTimeModel: FlowerRegressionModel,
     private val cloudTransmissionTimeModel: FlowerRegressionModel,
     private val runningLocation: RunningLocation = RunningLocation.PREDICT,
-    private val explorationChance: Double = .0
+    private val explorationChance: Double = .0,
+    private val perNodeCloudCost: Float = 200.0f,
+    private val minNodesToAddPenalty: Int = 3,
 ) {
-    fun predictComputationTimes(imgInfo: ImageInfo): Inference {
+    fun predictComputationTimes(imgInfo: ImageInfo, numNodes: Int, rttMillis: Int): Inference {
         if (runningLocation != RunningLocation.PREDICT)
             return Inference.Forced(runningLocation == RunningLocation.FORCE_LOCAL)
 
         val benchmarkInfo = ocrDataset.getBenchmarkInfo() ?: return Inference.Forced(false)
 
         val localInference = computeLocalCost(imgInfo, benchmarkInfo)
-        val cloudInference = computeCloudCost(imgInfo, benchmarkInfo)
+        val cloudInference = computeCloudCost(imgInfo, benchmarkInfo, numNodes, rttMillis)
 
         val runLocally = if (Math.random() < explorationChance) {
             // with some probability take random option in order to collect more data for that case
@@ -32,16 +34,18 @@ class InferenceEngine(
         return Inference(runLocally, localInference, cloudInference)
     }
 
-    private fun computeCloudCost(imgInfo: ImageInfo, benchmarkInfo: BenchmarkInfo): CloudInference {
+    private fun computeCloudCost(imgInfo: ImageInfo, benchmarkInfo: BenchmarkInfo, numNodes: Int, rttMillis: Int): CloudInference {
         val timeOfDay = ocrDataset.toTimeOfDay(Instant.now())
-        val cloudTimeX = ocrDataset.createCloudTimeXSample(benchmarkInfo, imgInfo, timeOfDay)
+        val cloudComputationTimeX = ocrDataset.createCloudComputationTimeXSample(benchmarkInfo, imgInfo, numNodes,  timeOfDay)
+        val cloudTransmissionTimeX = ocrDataset.createCloudTransmissionTimeXSample(benchmarkInfo, imgInfo, numNodes, rttMillis, timeOfDay)
 
         val cloudComputationTime = normalizeAndPredict(
-            cloudTimeX, ModelVariant.CLOUD_COMPUTATION_TIME, cloudComputationTimeModel, benchmarkInfo)
+            cloudComputationTimeX, ModelVariant.CLOUD_COMPUTATION_TIME, cloudComputationTimeModel, benchmarkInfo)
         val cloudTransmissionTime = normalizeAndPredict(
-            cloudTimeX, ModelVariant.CLOUD_TRANSMISSION_TIME, cloudTransmissionTimeModel, benchmarkInfo)
+            cloudTransmissionTimeX, ModelVariant.CLOUD_TRANSMISSION_TIME, cloudTransmissionTimeModel, benchmarkInfo)
+        val nodeCostFactor = perNodeCloudCost * (numNodes - minNodesToAddPenalty + 1).coerceAtLeast(0)
 
-        val totalCost = 1.5f * (cloudComputationTime + cloudTransmissionTime)
+        val totalCost = cloudComputationTime + cloudTransmissionTime + nodeCostFactor
         return CloudInference(totalCost, cloudComputationTime, cloudTransmissionTime)
     }
 
@@ -52,7 +56,8 @@ class InferenceEngine(
             localTimeModel,
             benchmarkInfo
         )
-        val localCost = 1.0f * localTime
+        val energyFactor = 0.4f * localTime
+        val localCost = localTime + energyFactor
 
         return TimeInference(localCost, localTime)
     }

@@ -33,7 +33,11 @@ class K8sOCREngine(private val ocrUrl: String) : CloudOCREngine {
             if (!response.isSuccessful || response.body == null)
                 throw IOException("Failed to call OCR cloud service")
             val ocrResponse = Json.decodeFromString<OCRResponse>(response.body!!.string())
-            return@doOCR CloudOCRInfo(ocrResponse.result, ocrResponse.computationTimeMillis.toDuration(DurationUnit.MILLISECONDS))
+            return@doOCR CloudOCRInfo(
+                ocrResponse.result,
+                ocrResponse.computationTimeMillis.toDuration(DurationUnit.MILLISECONDS),
+                ocrResponse.nodeNumber
+            )
         }
     }
 
@@ -46,4 +50,9 @@ class K8sOCREngine(private val ocrUrl: String) : CloudOCREngine {
 data class OCRRequest(val base64: String)
 
 @Serializable
-data class OCRResponse(val result: String, val version: String, val computationTimeMillis: Int)
+data class OCRResponse(
+    val result: String,
+    val version: String,
+    val computationTimeMillis: Int,
+    val nodeNumber: Int,
+)
