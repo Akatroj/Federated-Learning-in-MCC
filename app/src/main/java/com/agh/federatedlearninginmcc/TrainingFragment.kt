@@ -46,7 +46,7 @@ class TrainingFragment : Fragment() {
 //        private const val FLOWER_SERVER_IP = "10.0.2.2" // localhost from emulator
         private const val FLOWER_SERVER_IP = "34.116.231.98"
         private const val TRANSMISSION_TESTING_URL = "http://34.107.121.153:8080/info"
-        private const val TOTAL_IMAGES = 300
+        private const val TOTAL_IMAGES = 600
         private const val DELAY_FACTOR = 1.0f // totalTime = originalTime + delayFactor * originalTime
     }
 
@@ -92,7 +92,7 @@ class TrainingFragment : Fragment() {
                 testEnergy()
             }
             testTrainedOnStoredImages.setOnClickListener {
-                testModels(getImagesForTesting(), trained = true)
+                testModels(getImagesForTesting(), trained = true, forceLocations = true)
             }
             testUntrainedOnStoredImages.setOnClickListener {
                 testModels(getImagesForTesting(), trained = false)
@@ -105,10 +105,6 @@ class TrainingFragment : Fragment() {
                     }
                 }
             }
-        }
-        lifecycleScope.launch(Dispatchers.IO) {
-            val tt = TransmissionTester("http://34.107.121.153:8080/info").runTransmissionTest()
-            Log.d("TTTTT", tt.toString())
         }
     }
 
@@ -133,7 +129,7 @@ class TrainingFragment : Fragment() {
         binding.datasetStatus.text = "Dataset status: local time samples = $localTimeSize, cloud time samples = $cloudTimeSize"
     }
 
-    private fun getImagesForTesting() = (1100..<1140).map { getOcrImageFile(it) }
+    private fun getImagesForTesting() = (600..<640).map { getOcrImageFile(it) }
 
     private fun getBenchmarkImage(): File {
         return getOcrImageFile(0)
@@ -155,7 +151,8 @@ class TrainingFragment : Fragment() {
         dataset: OCRDataset,
         transmissionTestInfo: TransmissionTestInfo,
         runningLocation: RunningLocation = RunningLocation.PREDICT,
-        restoreModels: Boolean = true
+        restoreModels: Boolean = true,
+        saveNewSamples: Boolean = true
     ): OCRService {
         return OCRService(
             initTesseractOcr(),
@@ -180,29 +177,45 @@ class TrainingFragment : Fragment() {
                 runningLocation
             ),
             dataset,
-            transmissionTestInfo
+            transmissionTestInfo,
+            saveNewSamples=saveNewSamples
         )
     }
 
-    private fun testModels(imgs: List<File> = listOf(getBenchmarkImage()), trained: Boolean = true) {
+    private fun testModels(imgs: List<File> = listOf(getBenchmarkImage()), trained: Boolean = true, forceLocations: Boolean = false) {
         lifecycleScope.launch(Dispatchers.IO) {
             benchmarkHandler.assertHasRunBenchmark()
             val transmissionTestInfo = transmissionTester.runTransmissionTest()
-            val ocrService = createOCRService(dataset, transmissionTestInfo, RunningLocation.PREDICT, trained)
-
-            imgs.forEach {
-                Log.d("OCR", "Launching OCR")
-                val res = ocrService.doOCR(it)
-                Log.d("OCR", res)
+            val locations = if (forceLocations) {
+//                listOf(RunningLocation.PREDICT_AND_FORCE_CLOUD)
+                listOf(RunningLocation.PREDICT_AND_FORCE_LOCAL, RunningLocation.PREDICT_AND_FORCE_CLOUD)
+            } else {
+                listOf(RunningLocation.PREDICT)
             }
 
-            val summary = ocrService.printStatsAndGetSummary()
-            launch(Dispatchers.Main) {
-                Toast.makeText(
-                    context,
-                    "Testing result: $summary",
-                    Toast.LENGTH_LONG
-                ).show()
+            locations.forEach { location ->
+                val ocrService = createOCRService(
+                    dataset,
+                    transmissionTestInfo,
+                    location,
+                    trained,
+                    saveNewSamples = false
+                )
+
+                imgs.forEach {
+                    Log.d("OCR", "Launching OCR")
+                    val res = ocrService.doOCR(it)
+//                Log.d("OCR", res)
+                }
+
+                val summary = ocrService.printStatsAndGetSummary()
+                launch(Dispatchers.Main) {
+                    Toast.makeText(
+                        context,
+                        "Testing result: $summary",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         }
     }
@@ -235,7 +248,14 @@ class TrainingFragment : Fragment() {
             ).forEach { forcedLocation ->
                 val transmissionTestInfo = transmissionTester.runTransmissionTest()
                 val ocrService = createOCRService(dataset, transmissionTestInfo, forcedLocation, restoreModels = false)
-                imgFiles.forEach { ocrService.doOCR(it) }
+                imgFiles.forEachIndexed { i, img ->
+                    ocrService.doOCR(img)
+                    if ((i+1) % 10 == 0) {
+                        launch(Dispatchers.Main) {
+                            updateDatasetStatus()
+                        }
+                    }
+                }
             }
 
             launch(Dispatchers.Main) {

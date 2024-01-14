@@ -7,11 +7,11 @@ spec:
     spec:
       containers:
         - name: federated-server
-          image: flok3n/federated-server:latest
+          image: flok3n/federated-server:1.0.1
           imagePullPolicy: Always
           args:
             - "3" # min clients
-            - "15" # training rounds
+            - "50" # training rounds
           ports:
             - containerPort: 8885
             - containerPort: 8886

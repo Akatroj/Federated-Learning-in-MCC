@@ -18,7 +18,8 @@ class OCRService(
     private val cloudOCREngine: CloudOCREngine,
     private val inferenceEngine: InferenceEngine,
     private val ocrDataset: OCRDataset,
-    private val transmissionTestInfo: TransmissionTestInfo
+    private val transmissionTestInfo: TransmissionTestInfo,
+    private val saveNewSamples: Boolean = true
 ){
     private val localTimeInferenceInfo = mutableListOf<Pair<Float, Float>>()
     private val cloudComputationTimeInferenceInfo = mutableListOf<Pair<Float, Float>>()
@@ -27,7 +28,7 @@ class OCRService(
     private var currentNumNodes = transmissionTestInfo.nodes
 
     fun doOCR(img: File, forceLocalExecution: Boolean = false): String {
-        var start = System.currentTimeMillis()
+        val start = System.currentTimeMillis()
 
         val inferenceStart = System.currentTimeMillis()
         val imgInfo = ImageUtils.createImageInfo(img)
@@ -42,11 +43,16 @@ class OCRService(
             val ocrTime = System.currentTimeMillis() - start
 
             Log.d(TAG, "OCR local time: $ocrTime, predicted: ${prediction.localTime.timeMs}")
-            ocrDataset.addLocallyComputedTimeSample(imgInfo, ocrTime.toDuration(DurationUnit.MILLISECONDS))
+            if (saveNewSamples) {
+                ocrDataset.addLocallyComputedTimeSample(
+                    imgInfo,
+                    ocrTime.toDuration(DurationUnit.MILLISECONDS)
+                )
+            }
             localTimeInferenceInfo.add(Pair(prediction.localTime.timeMs, ocrTime.toFloat()))
             ocrResult
         } else {
-            var startInstant = Instant.now()
+            val startInstant = Instant.now()
             Log.d(TAG, "running OCR remotely")
 
             val ocrResult: CloudOCRInfo
@@ -68,8 +74,12 @@ class OCRService(
                     "computation time: ${ocrResult.computationTime}, " +
                     "predicted computation time: ${prediction.cloudTime.computationTimeMs}" )
 
-            ocrDataset.addCloudComputedTimeSample(imgInfo, ocrResult.computationTime, transmissionTime,
-                startInstant, currentNumNodes, transmissionTestInfo.rttMs)
+            if (saveNewSamples) {
+                ocrDataset.addCloudComputedTimeSample(
+                    imgInfo, ocrResult.computationTime, transmissionTime,
+                    startInstant, currentNumNodes, transmissionTestInfo.rttMs
+                )
+            }
             cloudComputationTimeInferenceInfo.add(Pair(
                 prediction.cloudTime.computationTimeMs, ocrResult.computationTime.inWholeMilliseconds.toFloat()))
             cloudTransmissionTimeInferenceInfo.add(Pair(

@@ -10,11 +10,11 @@ def fit_config(server_round: int):
     """
     config = {
         "batch_size": 8,
-        "local_epochs": 3,
+        "local_epochs": 1,
     }
     return config
 
-def run_server(port, min_clients, training_rounds):
+def run_server(port, min_clients, training_rounds, name):
     strategy = FedAvgAndroid(
         fraction_fit=1.0, 
         fraction_evaluate=1.0,
@@ -27,12 +27,13 @@ def run_server(port, min_clients, training_rounds):
 
     try:
         # Start Flower server for 10 rounds of federated learning
-        print(f'running server on port {port}')
-        start_server(
+        print(f'{name}: running server on port {port}')
+        history = start_server(
             server_address=f"0.0.0.0:{port}",
             config=ServerConfig(num_rounds=training_rounds), # won't start next round if client has small dataset
             strategy=strategy,
         )
+        print(f'{name}: losses distributed={history.losses_distributed}')
     except KeyboardInterrupt:
         return
 
@@ -40,7 +41,7 @@ def run_server(port, min_clients, training_rounds):
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         min_clients = 1
-        training_rounds = 10
+        training_rounds = 30
     else:
         min_clients = int(sys.argv[1])
         training_rounds = int(sys.argv[2])
@@ -53,6 +54,6 @@ if __name__ == "__main__":
         "cloud_transmission_time": 8887
     }
     with ThreadPoolExecutor(len(ports)) as executor:
-        jobs = [executor.submit(run_server, port, min_clients, training_rounds) for port in ports.values()]
-        executor.shutdown()
+        jobs = [executor.submit(run_server, port, min_clients, training_rounds, name) for name, port in ports.items()]
+        executor.shutdown(wait=True)
     

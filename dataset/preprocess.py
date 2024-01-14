@@ -8,7 +8,7 @@ MAIN_DIR = Path(__file__).parent
 ARCHIVE_DIR = MAIN_DIR.joinpath('archive', 'data')
 RES_DIR = MAIN_DIR.joinpath('preprocessed')
 
-TOTAL_IMAGES = 1200
+TOTAL_IMAGES = 700
 
 assert not RES_DIR.exists(), f'{RES_DIR} exists, remove it first'
 
@@ -27,6 +27,7 @@ while len(imgs_to_preprocess) < TOTAL_IMAGES:
     cycle_counter += 1
 
 os.mkdir(RES_DIR)
+np.random.shuffle(imgs_to_preprocess)
 
 for i, img_path in enumerate(imgs_to_preprocess):
     if (i + 1) % 100 == 0:

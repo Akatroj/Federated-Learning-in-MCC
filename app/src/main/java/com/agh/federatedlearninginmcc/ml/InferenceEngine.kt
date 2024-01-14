@@ -16,13 +16,16 @@ class InferenceEngine(
     private val minNodesToAddPenalty: Int = 3,
 ) {
     fun predictComputationTimes(imgInfo: ImageInfo, numNodes: Int, rttMillis: Int): Inference {
-        if (runningLocation != RunningLocation.PREDICT)
+        if (runningLocation == RunningLocation.FORCE_CLOUD || runningLocation == RunningLocation.FORCE_LOCAL)
             return Inference.Forced(runningLocation == RunningLocation.FORCE_LOCAL)
 
         val benchmarkInfo = ocrDataset.getBenchmarkInfo() ?: return Inference.Forced(false)
 
         val localInference = computeLocalCost(imgInfo, benchmarkInfo)
         val cloudInference = computeCloudCost(imgInfo, benchmarkInfo, numNodes, rttMillis)
+
+        if (runningLocation == RunningLocation.PREDICT_AND_FORCE_LOCAL || runningLocation == RunningLocation.PREDICT_AND_FORCE_CLOUD)
+            return Inference(runningLocation == RunningLocation.PREDICT_AND_FORCE_LOCAL, localInference, cloudInference)
 
         val runLocally = if (Math.random() < explorationChance) {
             // with some probability take random option in order to collect more data for that case
@@ -31,6 +34,7 @@ class InferenceEngine(
         } else {
             localInference.cost < cloudInference.cost
         }
+
         return Inference(runLocally, localInference, cloudInference)
     }
 
@@ -109,5 +113,7 @@ data class Inference(
 enum class RunningLocation {
     PREDICT,
     FORCE_LOCAL,
-    FORCE_CLOUD
+    FORCE_CLOUD,
+    PREDICT_AND_FORCE_LOCAL,
+    PREDICT_AND_FORCE_CLOUD
 }

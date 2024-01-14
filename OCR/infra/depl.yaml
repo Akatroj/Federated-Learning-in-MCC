@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: ocr-deployment
 spec:
+  replicas: 4
   selector:
     matchLabels:
       app: ocr
@@ -18,7 +19,7 @@ spec:
             limits:
               cpu: "2"
             requests:
-              cpu: "0.5"
+              cpu: "0.4"
           ports:
             - containerPort: 8080
         - name: proxy
