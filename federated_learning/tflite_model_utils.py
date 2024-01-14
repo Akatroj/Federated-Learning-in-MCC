@@ -57,4 +57,17 @@ def save_tflite_model(model: TFLiteModelWrapper, tf_model_path: str, tf_lite_mod
 def init_tflite_requirements(model_wrapper: TFLiteModelWrapper, input_dimensions: int, batch_size=None):
     apply_tf_function_decorators(model_wrapper, input_dimensions)
     model_wrapper.model.build(input_shape=(batch_size, input_dimensions))
-    
+
+def print_model_tensor_sizes(model: TFLiteModelWrapper):
+    tensor_shapes = []
+    for layer in model.model.layers:
+        for weight in layer.weights:
+            tensor_shapes.append(weight.shape)
+    res = f'inputDimensions = {tensor_shapes[0][0]},\n'
+    res += f'layerSizes = intArrayOf('
+    for i, shape in enumerate(tensor_shapes):
+        if i > 0:
+            res += ", "
+        res += " * ".join(str(x) for x in shape)
+    res += "),\n"
+    print(res)

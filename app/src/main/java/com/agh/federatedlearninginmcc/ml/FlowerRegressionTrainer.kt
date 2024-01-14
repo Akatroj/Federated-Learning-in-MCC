@@ -15,6 +15,7 @@ class FlowerRegressionTrainer(
 ) {
     private var trainSamples: List<Sample<FloatArray, Float>>
     private var evalSamples: List<Sample<FloatArray, Float>>
+    private var firstRound = true
 
     init {
         // TODO proper train eval split
@@ -34,7 +35,14 @@ class FlowerRegressionTrainer(
         return params
     }
 
-    fun fit(epochs: Int, batchSize: Int): TrainingResult = model.fit(trainSamples, epochs, batchSize)
+    fun fit(epochs: Int, batchSize: Int): TrainingResult {
+        if (firstRound) {
+            // to have loss before first training round
+            firstRound = false
+            return TrainingResult(epochLosses = listOf(0.0), trainingSamples=trainSamples.size)
+        }
+        return model.fit(trainSamples, epochs, batchSize)
+    }
 
     fun evaluate(): RegressionEvaluationResult = model.evaluate(evalSamples, evalBatchSize)
 

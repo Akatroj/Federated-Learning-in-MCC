@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: ocr-deployment
 spec:
+  replicas: 4
   selector:
     matchLabels:
       app: ocr
@@ -16,13 +17,13 @@ spec:
           image: otiai10/ocrserver
           resources:
             limits:
-              cpu: "1"
+              cpu: "2"
             requests:
-              cpu: "0.5"
+              cpu: "0.4"
           ports:
             - containerPort: 8080
         - name: proxy
-          image: flok3n/ocr-proxy:latest
+          image: flok3n/ocr-proxy:1.0.1
           imagePullPolicy: Always
           ports:
             - containerPort: 8081
