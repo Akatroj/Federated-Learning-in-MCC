@@ -4,5 +4,6 @@ import kotlin.time.Duration
 
 data class CloudOCRInfo(
     val text: String,
-    val computationTime: Duration
+    val computationTime: Duration,
+    val numNodes: Int,
 )

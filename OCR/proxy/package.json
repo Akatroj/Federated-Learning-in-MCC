@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "sudo docker build -t flok3n/ocr-proxy:latest .",
-    "push": "sudo docker push flok3n/ocr-proxy:latest"
+    "build": "sudo docker build -t flok3n/ocr-proxy:1.0.1 .",
+    "push": "sudo docker push flok3n/ocr-proxy:1.0.1"
   },
   "author": "",
   "license": "ISC",
