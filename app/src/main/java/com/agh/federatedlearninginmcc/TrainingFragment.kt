@@ -247,6 +247,7 @@ class TrainingFragment : Fragment() {
                 RunningLocation.FORCE_CLOUD
             ).forEach { forcedLocation ->
                 val transmissionTestInfo = transmissionTester.runTransmissionTest()
+                benchmarkHandler.assertHasRunBenchmark()
                 val ocrService = createOCRService(dataset, transmissionTestInfo, forcedLocation, restoreModels = false)
                 imgFiles.forEachIndexed { i, img ->
                     ocrService.doOCR(img)
