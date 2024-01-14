@@ -24,6 +24,7 @@ class OCRService(
     private val localTimeInferenceInfo = mutableListOf<Pair<Float, Float>>()
     private val cloudComputationTimeInferenceInfo = mutableListOf<Pair<Float, Float>>()
     private val cloudTransmissionTimeInferenceInfo = mutableListOf<Pair<Float, Float>>()
+    private val inferenceTimes = mutableListOf<Long>()
 
     private var currentNumNodes = transmissionTestInfo.nodes
 
@@ -33,7 +34,9 @@ class OCRService(
         val inferenceStart = System.currentTimeMillis()
         val imgInfo = ImageUtils.createImageInfo(img)
         val prediction = inferenceEngine.predictComputationTimes(imgInfo, currentNumNodes, transmissionTestInfo.rttMs)
-        Log.d(TAG, "Inference time: ${System.currentTimeMillis() - inferenceStart}ms, " +
+        val inferenceTime = System.currentTimeMillis() - inferenceStart
+        inferenceTimes.add(inferenceTime)
+        Log.d(TAG, "Inference time: ${inferenceTime}ms, " +
                 "Local cost: ${prediction.localTime.cost}, Cloud cost: ${prediction.cloudTime.cost}")
 
         return if (forceLocalExecution || prediction.shouldRunLocally) {
@@ -95,6 +98,13 @@ class OCRService(
             ModelVariant.CLOUD_COMPUTATION_TIME to cloudComputationTimeInferenceInfo,
             ModelVariant.CLOUD_TRANSMISSION_TIME to cloudTransmissionTimeInferenceInfo
         )
+
+        val meanInferenceTime = if (inferenceTimes.size > 0) {
+            inferenceTimes.sum().toFloat() / inferenceTimes.size
+        } else {
+            0
+        }
+        Log.i(TAG, "Mean inference time: $meanInferenceTime")
 
         return variants.entries.filter { it.value.isNotEmpty() }.map { entry ->
             var squaredError = 0.0f

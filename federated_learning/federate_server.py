@@ -41,7 +41,7 @@ def run_server(port, min_clients, training_rounds, name):
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         min_clients = 1
-        training_rounds = 30
+        training_rounds = 5
     else:
         min_clients = int(sys.argv[1])
         training_rounds = int(sys.argv[2])

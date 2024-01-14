@@ -33,7 +33,7 @@ for i, img_path in enumerate(imgs_to_preprocess):
     if (i + 1) % 100 == 0:
         print(f'{i + 1}/{len(imgs_to_preprocess)}...')
     img = Image.open(img_path)
-    shrink_ratio = np.clip(np.random.normal(2., 0.5, 1)[0], 1.25, 2.75)
+    shrink_ratio = np.clip(np.random.normal(2., 0.5, 1)[0], 1.75, 2.25)
     resized = img.resize((int(img.width / shrink_ratio), int(img.height / shrink_ratio))) 
     res_path = RES_DIR.joinpath(f'img_{i}.jpg')
     resized.save(res_path)
