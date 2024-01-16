@@ -2,7 +2,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/holo_green_light"
+    android:layout_margin="20dp"
     android:orientation="vertical"
     tools:context=".OcrFragment">
 
@@ -20,12 +20,53 @@
         android:text="Upload from gallery"
         android:textSize="28sp" />
 
-    <ImageView
-        android:id="@+id/imageView"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
-        android:src="@drawable/ic_launcher_background" />
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/previewText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Preview"
+            android:visibility="invisible" />
+
+        <ImageView
+            android:id="@+id/imageView"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_marginTop="10dp"
+            android:scaleType="fitXY"
+            android:visibility="invisible" />
+
+        <Button
+            android:id="@+id/performOcrButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Perform OCR"
+            android:visibility="invisible" />
+
+        <TextView
+            android:id="@+id/infoText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="invisible" />
+        <TextView
+            android:id="@+id/resultText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Result:"
+            android:visibility="invisible"
+            android:layout_marginTop="20dp"
+            android:fontFamily="monospace"
+
+            />
+
+    </LinearLayout>
 
     <View
         android:layout_width="match_parent"
@@ -36,7 +77,7 @@
         android:id="@+id/gotoTrainingButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Go to training"
-        android:layout_gravity="center" />
+        android:layout_gravity="center"
+        android:text="Go to training" />
 
 </LinearLayout>

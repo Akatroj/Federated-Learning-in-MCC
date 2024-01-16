@@ -28,7 +28,7 @@ class OCRService(
 
     private var currentNumNodes = transmissionTestInfo.nodes
 
-    fun doOCR(img: File, forceLocalExecution: Boolean = false): String {
+    fun doOCR(img: File, forceLocalExecution: Boolean = false): OCRResultData {
         val start = System.currentTimeMillis()
 
         val inferenceStart = System.currentTimeMillis()
@@ -53,7 +53,7 @@ class OCRService(
                 )
             }
             localTimeInferenceInfo.add(Pair(prediction.localTime.timeMs, ocrTime.toFloat()))
-            ocrResult
+            OCRResultData(ocrResult, prediction, ocrTime.toFloat())
         } else {
             val startInstant = Instant.now()
             Log.d(TAG, "running OCR remotely")
@@ -88,7 +88,7 @@ class OCRService(
             cloudTransmissionTimeInferenceInfo.add(Pair(
                 prediction.cloudTime.transmissionTimeMs, transmissionTime.inWholeMilliseconds.toFloat()))
 
-            ocrResult.text
+            OCRResultData(ocrResult.text, prediction, prediction.cloudTime.computationTimeMs + transmissionTime.inWholeMilliseconds)
         }
     }
 
