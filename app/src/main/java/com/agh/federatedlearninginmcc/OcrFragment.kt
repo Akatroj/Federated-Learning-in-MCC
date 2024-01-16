@@ -18,19 +18,30 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.agh.federatedlearninginmcc.databinding.FragmentOcrBinding
+import com.agh.federatedlearninginmcc.dataset.OcrDatabase
+import com.agh.federatedlearninginmcc.dataset.SqlOcrDataset
+import com.agh.federatedlearninginmcc.ml.RunningLocation
+import com.agh.federatedlearninginmcc.ocr.OCRService
+import com.agh.federatedlearninginmcc.ocr.OCRServiceFactory
+import com.agh.federatedlearninginmcc.ocr.TransmissionTester
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
 import java.util.Date
 import java.util.Locale
 
 class OcrFragment : Fragment() {
+    private lateinit var ocrService: OCRService
     private lateinit var binding: FragmentOcrBinding
+
     private var photoURI: Uri? = null
 
     companion object {
-        private const val TAG = "MainActivity"
+        private const val TAG = "OCRFragment"
         private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
         private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
     }
@@ -46,6 +57,15 @@ class OcrFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         addOnClickedListener()
+        setupOCR()
+    }
+
+    private fun setupOCR() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = OcrDatabase.getInstance(requireContext())
+            val dataset = SqlOcrDataset(db)
+            ocrService = OCRServiceFactory.create(requireContext(), dataset)
+        }
     }
 
     private fun addOnClickedListener() {
