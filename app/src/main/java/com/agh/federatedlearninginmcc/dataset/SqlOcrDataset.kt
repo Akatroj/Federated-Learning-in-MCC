@@ -1,5 +1,6 @@
 package com.agh.federatedlearninginmcc.dataset
 
+import android.content.Context
 import androidx.room.*
 import com.agh.federatedlearninginmcc.ml.ModelVariant
 import com.agh.federatedlearninginmcc.ocr.BenchmarkInfo
@@ -189,4 +190,17 @@ abstract class OcrDatabase: RoomDatabase() {
     abstract fun locallyComputedTimeSampleDao(): LocallyComputedTimeSampleDao
     abstract fun cloudComputedTimeSampleDao(): CloudComputedTimeSampleDao
     abstract fun localBenchmarkTaskInfoDao(): LocalBenchmarkTaskInfoDao
+
+    companion object {
+        private var instance: OcrDatabase? = null
+        fun getInstance(context: Context): OcrDatabase {
+            if (instance == null) {
+                instance = Room.databaseBuilder(context, OcrDatabase::class.java, "ocrdatabase")
+                    .allowMainThreadQueries()
+                    .fallbackToDestructiveMigration()
+                    .build()
+            }
+            return instance!!
+        }
+    }
 }

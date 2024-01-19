@@ -6,21 +6,23 @@
     app:startDestination="@id/trainingFragment">
 
     <fragment
-        android:id="@+id/ocrFragment"
-        android:name="com.agh.federatedlearninginmcc.OcrFragment"
-        android:label="fragment_ocr"
-        tools:layout="@layout/fragment_ocr" >
-        <action
-            android:id="@+id/action_ocrFragment_to_trainingFragment"
-            app:destination="@id/trainingFragment" />
-    </fragment>
-    <fragment
         android:id="@+id/trainingFragment"
         android:name="com.agh.federatedlearninginmcc.TrainingFragment"
         android:label="fragment_training"
-        tools:layout="@layout/fragment_training" >
+        tools:layout="@layout/fragment_training">
         <action
             android:id="@+id/action_trainingFragment_to_ocrFragment"
-            app:destination="@id/ocrFragment" />
+            app:destination="@id/ocrFragment"
+            app:launchSingleTop="true" />
+    </fragment>
+    <fragment
+        android:id="@+id/ocrFragment"
+        android:name="com.agh.federatedlearninginmcc.OcrFragment"
+        android:label="fragment_ocr"
+        tools:layout="@layout/fragment_ocr">
+        <action
+            android:id="@+id/action_ocrFragment_to_trainingFragment"
+            app:launchSingleTop="true"
+            app:popUpTo="@id/trainingFragment" />
     </fragment>
 </navigation>
